@@ -138,7 +138,7 @@ const Hero = () => {
               <div className="flex flex-wrap gap-3">
                 <button 
                   className="bg-white text-purple-600 hover:bg-purple-50 shadow-lg px-4 py-2.5 rounded-lg font-medium transition flex items-center"
-                  onClick={() => navigate('/create-profile')}
+                onClick={() => navigate('/user-dashboard')}
                 >
                   <i className="fa-solid fa-play w-4 h-4 mr-2"></i>
                   Upload Resume
