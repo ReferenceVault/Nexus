@@ -8,10 +8,12 @@ const Footer = () => {
           {/* Brand */}
           <div className="lg:col-span-2">
             <div className="flex items-center mb-6">
-              <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <i className="fa-solid fa-network-wired text-white text-lg"></i>
-              </div>
-              <span className="ml-3 text-2xl font-bold">Nexus</span>
+              <img
+                src="/logo.jpeg"
+                alt="Logo"
+                className="h-10 w-[5.25rem] rounded-lg object-cover"
+              />
+              <span className="ml-3 text-2xl font-bold">CIPNexus</span>
             </div>
             <p className="text-slate-400 mb-6 max-w-md leading-relaxed">Connecting exceptional talent with outstanding opportunities worldwide. Fair, transparent, and focused on your success.</p>
             <div className="flex space-x-3">
@@ -71,7 +73,7 @@ const Footer = () => {
         <div className="border-t border-slate-800 pt-8">
           <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
             <div className="text-slate-400 text-sm">
-              © 2024 Nexus. All rights reserved.
+              © 2025 CIPNexus. All rights reserved.
             </div>
             <div className="flex flex-wrap justify-center gap-6 text-slate-400 text-sm">
               <span className="hover:text-white transition cursor-pointer">Privacy Policy</span>
