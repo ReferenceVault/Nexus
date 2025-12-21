@@ -5,6 +5,8 @@ import CreateProfile from './pages/CreateProfile'
 import ImportProfile from './pages/ImportProfile'
 import JobMatches from './pages/JobMatches'
 import JobDetails from './pages/JobDetails'
+import ResumeJDMatch from './pages/ResumeJDMatch'
+import ResumeJDMatchReport from './pages/ResumeJDMatchReport'
 
 function App() {
   return (
@@ -15,6 +17,8 @@ function App() {
         <Route path="/import-profile" element={<ImportProfile />} />
         <Route path="/job-matches" element={<JobMatches />} />
         <Route path="/job-details/:jobId" element={<JobDetails />} />
+        <Route path="/resume-jd-match" element={<ResumeJDMatch />} />
+        <Route path="/resume-jd-match/report" element={<ResumeJDMatchReport />} />
       </Routes>
     </Router>
   )
