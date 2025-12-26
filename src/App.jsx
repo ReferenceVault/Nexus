@@ -12,14 +12,9 @@ import ResetPassword from './pages/ResetPassword'
 import UserDashboard from './pages/UserDashboard'
 import Onboarding from './pages/Onboarding'
 import Assessment from './pages/Assessment'
-import { isOnboardingComplete } from './utils/onboarding'
 
 // Protected Route Component
 const ProtectedDashboard = () => {
-  if (!isOnboardingComplete()) {
-    // Redirect to onboarding if not completed
-    return <Navigate to="/onboarding" replace />
-  }
   return <UserDashboard />
 }
 

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import { api, authStorage } from '../utils/api'
-import { isOnboardingComplete } from '../utils/onboarding'
 
 const Signin = () => {
   const navigate = useNavigate()
@@ -33,14 +32,8 @@ const Signin = () => {
       authStorage.setTokens(response.tokens.accessToken, response.tokens.refreshToken)
       authStorage.setUserData(response.user)
       
-      // Check if onboarding is complete
-      if (isOnboardingComplete()) {
-        // Returning user - go to dashboard
-        navigate('/user-dashboard')
-      } else {
-        // First-time user - go to onboarding
-        navigate('/onboarding')
-      }
+      // Always redirect to dashboard after login
+      navigate('/user-dashboard')
     } catch (error) {
       setErrors({ submit: error.message || 'Invalid email or password' })
     } finally {
