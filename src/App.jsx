@@ -5,7 +5,8 @@ import CreateProfile from './pages/CreateProfile'
 import ImportProfile from './pages/ImportProfile'
 import JobMatches from './pages/JobMatches'
 import JobDetails from './pages/JobDetails'
-import Auth from './pages/Auth'
+import Signin from './pages/Auth'
+import Signup from './pages/Signup'
 import UserDashboard from './pages/UserDashboard'
 import Onboarding from './pages/Onboarding'
 import Assessment from './pages/Assessment'
@@ -25,7 +26,9 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/auth" element={<Auth />} />
+        <Route path="/auth" element={<Navigate to="/signin" replace />} />
+        <Route path="/signin" element={<Signin />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/user-dashboard" element={<ProtectedDashboard />} />
         <Route path="/assessments" element={<Assessment />} />

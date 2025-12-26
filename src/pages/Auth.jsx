@@ -1,21 +1,56 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
+import { api, authStorage } from '../utils/api'
 import { isOnboardingComplete } from '../utils/onboarding'
 
-const Auth = () => {
+const Signin = () => {
   const navigate = useNavigate()
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  })
+  const [errors, setErrors] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
-  const handleSignIn = () => {
-    // Check if onboarding is complete
-    if (isOnboardingComplete()) {
-      // Returning user - go to dashboard
-      navigate('/user-dashboard')
-    } else {
-      // First-time user - go to onboarding
-      navigate('/onboarding')
+  const handleInputChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
     }
+  }
+
+  const handleSignIn = async (e) => {
+    e?.preventDefault()
+    setLoading(true)
+    try {
+      const response = await api.login(formData.email, formData.password)
+      
+      // Store tokens
+      authStorage.setTokens(response.tokens.accessToken, response.tokens.refreshToken)
+      authStorage.setUserData(response.user)
+      
+      // Check if onboarding is complete
+      if (isOnboardingComplete()) {
+        // Returning user - go to dashboard
+        navigate('/user-dashboard')
+      } else {
+        // First-time user - go to onboarding
+        navigate('/onboarding')
+      }
+    } catch (error) {
+      setErrors({ submit: error.message || 'Invalid email or password' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleSignin = () => {
+    // TODO: Implement Google OAuth
+    alert('Google signin coming soon!')
   }
   return (
     <div className="bg-white text-neutral-900">
@@ -68,22 +103,45 @@ const Auth = () => {
                 <div className="text-sm font-semibold text-slate-400">Access your profile and applications</div>
               </div>
 
-              <form className="space-y-4">
+              {errors.submit && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg">
+                  {errors.submit}
+                </div>
+              )}
+
+              <form onSubmit={handleSignIn} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Email Address</label>
                   <input
                     type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
                     placeholder="your@email.com"
+                    required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Password</label>
-                  <input
-                    type="password"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                    placeholder="Enter your password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      placeholder="Enter your password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                      <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-slate-600">
@@ -97,12 +155,21 @@ const Auth = () => {
                 </div>
 
                 <button
-                  type="button"
-                  className="w-3/5 mx-auto bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:from-indigo-700 hover:to-purple-700 transition shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2"
-                  onClick={handleSignIn}
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:from-indigo-700 hover:to-purple-700 transition shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>Sign In to Dashboard</span>
-                  <i className="fa-solid fa-right-to-bracket text-sm"></i>
+                  {loading ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin"></i>
+                      <span>Signing in...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign In to Dashboard</span>
+                      <i className="fa-solid fa-right-to-bracket text-sm"></i>
+                    </>
+                  )}
                 </button>
 
                 <div className="flex items-center space-x-2 text-xs text-slate-500">
@@ -111,14 +178,23 @@ const Auth = () => {
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
-                <div className="grid grid-cols-1 gap-3">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignin}
+                  className="w-full flex items-center justify-center rounded-lg border border-slate-200 bg-gradient-to-r from-slate-50 to-indigo-50 py-2.5 text-xs font-semibold hover:from-slate-100 hover:to-indigo-100 transition"
+                >
+                  <i className="fa-brands fa-google text-indigo-600 mr-2 text-sm"></i>
+                  <span className="font-bold">Sign in with Google</span>
+                </button>
+
+                <div className="text-center text-xs text-slate-600">
+                  Don't have an account?{' '}
                   <button
                     type="button"
-                    className="w-3/5 mx-auto flex items-center justify-center rounded-lg border border-slate-200 bg-gradient-to-r from-slate-50 to-indigo-50 py-1.5 text-xs font-semibold hover:from-slate-100 hover:to-indigo-100 transition"
-                    onClick={handleSignIn}
+                    onClick={() => navigate('/signup')}
+                    className="text-indigo-500 hover:text-indigo-600 font-medium"
                   >
-                    <i className="fa-brands fa-google text-indigo-600 mr-2 text-sm"></i>
-                    <span className="font-bold">Google</span>
+                    Sign up
                   </button>
                 </div>
               </form>
@@ -133,5 +209,5 @@ const Auth = () => {
   )
 }
 
-export default Auth
+export default Signin
 
