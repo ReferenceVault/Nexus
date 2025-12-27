@@ -1,9 +1,18 @@
 import React, { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
+import { api, authStorage } from '../utils/api'
 
 const UserDashboard = () => {
+  const navigate = useNavigate()
   const profileFormRef = useRef(null)
   const [showProfileForm, setShowProfileForm] = useState(false)
+  
+  const userData = authStorage.getUserData()
+  const userName = userData?.firstName && userData?.lastName 
+    ? `${userData.firstName} ${userData.lastName}` 
+    : userData?.email?.split('@')[0] || 'User'
+  const userAvatar = 'https://i.pravatar.cc/64?img=4'
 
   const handleScrollToProfile = () => {
     if (!showProfileForm) {
@@ -18,9 +27,35 @@ const UserDashboard = () => {
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      const accessToken = authStorage.getAccessToken()
+      if (accessToken) {
+        await api.logout(accessToken)
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Continue with logout even if API call fails
+    } finally {
+      // Clear all auth data
+      authStorage.clearTokens()
+      authStorage.clearUserData()
+      authStorage.clearSignupData()
+      
+      // Redirect to home page
+      navigate('/')
+    }
+  }
+
   return (
     <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white min-h-screen flex flex-col">
-      <Header userMode activeNav="Dashboard" />
+      <Header 
+        userMode 
+        activeNav="Dashboard" 
+        userName={userName}
+        userAvatar={userAvatar}
+        onLogout={handleLogout}
+      />
 
       <main className="flex-1">
         <section className="relative overflow-hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
