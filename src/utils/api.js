@@ -146,6 +146,26 @@ export const api = {
     return handleApiError(response)
   },
 
+  async getUserResumes() {
+    const token = getAuthToken()
+    if (!token) {
+      throw new Error('No authentication token. Please sign in again.')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/resumes`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (response.status === 401) {
+      store.dispatch({ type: 'auth/logout' })
+      throw new Error('Session expired. Please sign in again.')
+    }
+
+    return handleApiError(response)
+  },
+
   // Generic authenticated request helper
   async authenticatedRequest(url, options = {}) {
     const token = getAuthToken()

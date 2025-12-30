@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
-import { setOnboardingStatus, OnboardingStatus, completeOnboarding } from '../utils/onboarding'
+import { setOnboardingStatus, OnboardingStatus, completeOnboarding, getOnboardingStatus } from '../utils/onboarding'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../utils/api'
 import ErrorMessage from '../components/common/ErrorMessage'
+import LoadingSpinner from '../components/common/LoadingSpinner'
 
 const Onboarding = () => {
   const navigate = useNavigate()
@@ -15,6 +16,7 @@ const Onboarding = () => {
   const [saveError, setSaveError] = useState(null)
   const [isUploadingResume, setIsUploadingResume] = useState(false)
   const [resumeUploadError, setResumeUploadError] = useState(null)
+  const [isLoadingProgress, setIsLoadingProgress] = useState(true)
   const [formData, setFormData] = useState({
     // Step 1: Basic Information
     firstName: '',
@@ -33,23 +35,82 @@ const Onboarding = () => {
   })
 
   useEffect(() => {
-    // Prefill data from signup or user data
-    if (signupData?.firstName || signupData?.lastName || signupData?.email) {
-      setFormData(prev => ({
-        ...prev,
-        firstName: signupData.firstName || prev.firstName,
-        lastName: signupData.lastName || prev.lastName,
-        email: signupData.email || prev.email,
-      }))
-    } else if (user) {
-      setFormData(prev => ({
-        ...prev,
-        firstName: user.firstName || prev.firstName,
-        lastName: user.lastName || prev.lastName,
-        email: user.email || prev.email,
-      }))
+    // Check onboarding progress and set current step
+    const checkOnboardingProgress = async () => {
+      if (!isAuthenticated || !accessToken) {
+        setIsLoadingProgress(false)
+        return
+      }
+
+      try {
+        // Get user profile to check step 1 completion
+        const userProfile = await api.getCurrentUser()
+        
+        // Check if step 1 is complete (has firstName, lastName, phone, addressInformation)
+        const step1Complete = 
+          userProfile.firstName && 
+          userProfile.lastName && 
+          userProfile.phone && 
+          userProfile.addressInformation
+
+        // Check if step 2 is complete (has uploaded resume)
+        let step2Complete = false
+        try {
+          const resumes = await api.getUserResumes()
+          step2Complete = resumes && resumes.length > 0
+        } catch (error) {
+          console.error('Error checking resumes:', error)
+        }
+
+        // Determine current step based on completion
+        let initialStep = 1
+        if (step1Complete && step2Complete) {
+          initialStep = 3
+        } else if (step1Complete) {
+          initialStep = 2
+        }
+
+        // Prefill form data from user profile
+        if (userProfile) {
+          setFormData(prev => ({
+            ...prev,
+            firstName: userProfile.firstName || prev.firstName,
+            lastName: userProfile.lastName || prev.lastName,
+            email: userProfile.email || prev.email,
+            phone: userProfile.phone || prev.phone,
+            streetAddress: userProfile.addressInformation?.streetAddress || prev.streetAddress,
+            city: userProfile.addressInformation?.city || prev.city,
+            state: userProfile.addressInformation?.state || prev.state,
+            zipCode: userProfile.addressInformation?.zipCode || prev.zipCode,
+            country: userProfile.addressInformation?.country || prev.country,
+          }))
+        }
+
+        // Also check localStorage status as fallback
+        const savedStatus = getOnboardingStatus()
+        if (savedStatus === OnboardingStatus.RESUME_UPLOADED && step2Complete) {
+          initialStep = 3
+        } else if (savedStatus === OnboardingStatus.BASIC_INFO && step1Complete) {
+          initialStep = step2Complete ? 3 : 2
+        }
+
+        setCurrentStep(initialStep)
+      } catch (error) {
+        console.error('Error checking onboarding progress:', error)
+        // Fallback to localStorage status
+        const savedStatus = getOnboardingStatus()
+        if (savedStatus === OnboardingStatus.RESUME_UPLOADED) {
+          setCurrentStep(3)
+        } else if (savedStatus === OnboardingStatus.BASIC_INFO) {
+          setCurrentStep(2)
+        }
+      } finally {
+        setIsLoadingProgress(false)
+      }
     }
-  }, [signupData, user])
+
+    checkOnboardingProgress()
+  }, [isAuthenticated, accessToken, signupData, user])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -277,6 +338,17 @@ const Onboarding = () => {
     { number: 2, title: 'Upload Resume', icon: 'fa-file-arrow-up' },
     { number: 3, title: 'Video Introduction', icon: 'fa-video' }
   ]
+
+  if (isLoadingProgress) {
+    return (
+      <div className="bg-slate-50 text-neutral-900 min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <LoadingSpinner />
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-slate-50 text-neutral-900 min-h-screen flex flex-col">
