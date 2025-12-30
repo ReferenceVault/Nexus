@@ -14,6 +14,7 @@ import Onboarding from './pages/Onboarding'
 import Assessment from './pages/Assessment'
 import GoogleCallback from './pages/GoogleCallback'
 import ProtectedRoute from './components/common/ProtectedRoute'
+import PublicRoute from './components/common/PublicRoute'
 
 function App() {
   return (
@@ -26,10 +27,10 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/auth" element={<Navigate to="/signin" replace />} />
-        <Route path="/signin" element={<Signin />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/signin" element={<PublicRoute><Signin /></PublicRoute>} />
+        <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+        <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+        <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
         <Route path="/auth/google/callback" element={<GoogleCallback />} />
         <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
         <Route path="/user-dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />

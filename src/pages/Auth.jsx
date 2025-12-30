@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
@@ -6,10 +6,18 @@ import { api } from '../utils/api'
 import { useAuth } from '../hooks/useAuth'
 import FormInput from '../components/common/FormInput'
 import ErrorMessage from '../components/common/ErrorMessage'
+import { isTokenExpired } from '../utils/apiClient'
 
 const Signin = () => {
   const navigate = useNavigate()
-  const { login, setLoading, isLoading, error, setError, clearError } = useAuth()
+  const { login, setLoading, isLoading, error, setError, clearError, isAuthenticated, accessToken } = useAuth()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && accessToken && !isTokenExpired(accessToken)) {
+      navigate('/user-dashboard', { replace: true })
+    }
+  }, [isAuthenticated, accessToken, navigate])
   const [formData, setFormData] = useState({
     email: '',
     password: '',

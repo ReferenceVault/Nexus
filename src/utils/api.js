@@ -1,186 +1,119 @@
 import { store } from '../store'
+import { authenticatedFetch, unauthenticatedFetch, handleApiError } from './apiClient'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
-// Helper to get auth token from Redux store
+// Helper to get auth token from Redux store (for backward compatibility)
 const getAuthToken = () => {
   const state = store.getState()
   return state.auth.accessToken
 }
 
-// Helper to handle API errors
-const handleApiError = async (response) => {
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({
-      message: 'An error occurred',
-    }))
-    throw new Error(error.message || 'Request failed')
-  }
-  return response.json()
-}
-
 // API client with automatic token injection
 export const api = {
   async signup(email, firstName, lastName, password) {
-    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+    const response = await unauthenticatedFetch('/auth/signup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, firstName, lastName, password }),
     })
     return handleApiError(response)
   },
 
   async login(email, password) {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await unauthenticatedFetch('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     })
     return handleApiError(response)
   },
 
   async getCurrentUser() {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('No authentication token')
-    }
-    const response = await fetch(`${API_BASE_URL}/users/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const response = await authenticatedFetch('/users/me')
     return handleApiError(response)
   },
 
   async refreshToken() {
-    const state = store.getState()
-    const refreshToken = state.auth.refreshToken
-    if (!refreshToken) {
-      throw new Error('No refresh token')
-    }
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    // This is now handled automatically by authenticatedFetch
+    // Keeping for backward compatibility but it's not needed
+    const response = await unauthenticatedFetch('/auth/refresh', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify({ 
+        refreshToken: store.getState().auth.refreshToken 
+      }),
     })
     return handleApiError(response)
   },
 
   async logout() {
-    const token = getAuthToken()
-    if (token) {
-      try {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-    })
-      } catch (error) {
-        console.error('Logout API error:', error)
-      }
+    try {
+      await authenticatedFetch('/auth/logout', {
+        method: 'POST',
+      }, false) // Don't retry on 401 for logout
+    } catch (error) {
+      console.error('Logout API error:', error)
     }
     return { success: true }
   },
 
   async forgotPassword(email) {
-    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    const response = await unauthenticatedFetch('/auth/forgot-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
     return handleApiError(response)
   },
 
   async resetPassword(token, newPassword) {
-    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    const response = await unauthenticatedFetch('/auth/reset-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, newPassword }),
     })
     return handleApiError(response)
   },
 
   async updateProfile(profileData) {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('No authentication token. Please sign in again.')
-    }
-    
-    const response = await fetch(`${API_BASE_URL}/users/me`, {
+    const response = await authenticatedFetch('/users/me', {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify(profileData),
     })
-    
-    if (response.status === 401) {
-      // Token expired or invalid - clear auth and redirect
-      store.dispatch({ type: 'auth/logout' })
-      throw new Error('Session expired. Please sign in again.')
-    }
-    
     return handleApiError(response)
   },
 
   async uploadResume(file) {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('No authentication token. Please sign in again.')
-    }
-
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await fetch(`${API_BASE_URL}/resumes/upload`, {
+    const response = await authenticatedFetch('/resumes/upload', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
       body: formData,
     })
-
-    if (response.status === 401) {
-      store.dispatch({ type: 'auth/logout' })
-      throw new Error('Session expired. Please sign in again.')
-    }
-
     return handleApiError(response)
   },
 
   async getUserResumes() {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('No authentication token. Please sign in again.')
-    }
-
-    const response = await fetch(`${API_BASE_URL}/resumes`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-
-    if (response.status === 401) {
-      store.dispatch({ type: 'auth/logout' })
-      throw new Error('Session expired. Please sign in again.')
-    }
-
+    const response = await authenticatedFetch('/resumes')
     return handleApiError(response)
   },
 
-  // Generic authenticated request helper
-  async authenticatedRequest(url, options = {}) {
-    const token = getAuthToken()
-    if (!token) {
-      throw new Error('No authentication token')
-    }
+  async uploadVideo(file) {
+    const formData = new FormData()
+    formData.append('file', file)
 
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...options.headers,
-      },
+    const response = await authenticatedFetch('/videos/upload', {
+      method: 'POST',
+      body: formData,
     })
+    return handleApiError(response)
+  },
+
+  async getUserVideos() {
+    const response = await authenticatedFetch('/videos')
+    return handleApiError(response)
+  },
+
+  // Generic authenticated request helper (now uses authenticatedFetch)
+  async authenticatedRequest(url, options = {}) {
+    const response = await authenticatedFetch(url, options)
     return handleApiError(response)
   },
 }

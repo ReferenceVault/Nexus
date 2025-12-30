@@ -17,6 +17,12 @@ const Onboarding = () => {
   const [isUploadingResume, setIsUploadingResume] = useState(false)
   const [resumeUploadError, setResumeUploadError] = useState(null)
   const [isLoadingProgress, setIsLoadingProgress] = useState(true)
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false)
+  const [videoUploadError, setVideoUploadError] = useState(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordedVideo, setRecordedVideo] = useState(null)
+  const [mediaRecorder, setMediaRecorder] = useState(null)
+  const [videoStream, setVideoStream] = useState(null)
   const [formData, setFormData] = useState({
     // Step 1: Basic Information
     firstName: '',
@@ -62,9 +68,22 @@ const Onboarding = () => {
           console.error('Error checking resumes:', error)
         }
 
+        // Check if step 3 is complete (has uploaded video)
+        let step3Complete = false
+        try {
+          const videos = await api.getUserVideos()
+          step3Complete = videos && videos.length > 0
+        } catch (error) {
+          console.error('Error checking videos:', error)
+        }
+
         // Determine current step based on completion
         let initialStep = 1
-        if (step1Complete && step2Complete) {
+        if (step1Complete && step2Complete && step3Complete) {
+          // All steps complete - show completion screen
+          setShowCompletion(true)
+          initialStep = 3
+        } else if (step1Complete && step2Complete) {
           initialStep = 3
         } else if (step1Complete) {
           initialStep = 2
@@ -128,6 +147,99 @@ const Onboarding = () => {
     // Clear error when file is selected
     if (field === 'resumeFile') {
       setResumeUploadError(null)
+    } else if (field === 'videoFile') {
+      setVideoUploadError(null)
+      setRecordedVideo(null) // Clear recorded video if uploading file
+    }
+  }
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      })
+      setVideoStream(stream)
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp8,opus'
+      })
+
+      const chunks = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data)
+        }
+      }
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' })
+        const file = new File([blob], `recorded-video-${Date.now()}.webm`, {
+          type: 'video/webm'
+        })
+        setRecordedVideo(file)
+        setFormData(prev => ({ ...prev, videoFile: file }))
+        stream.getTracks().forEach(track => track.stop())
+      }
+
+      recorder.start()
+      setMediaRecorder(recorder)
+      setIsRecording(true)
+    } catch (error) {
+      console.error('Error starting recording:', error)
+      setVideoUploadError('Failed to access camera/microphone. Please check permissions.')
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop()
+      setIsRecording(false)
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop())
+        setVideoStream(null)
+      }
+    }
+  }
+
+  const uploadVideo = async (videoFile) => {
+    try {
+      setIsUploadingVideo(true)
+      setVideoUploadError(null)
+
+      if (!isAuthenticated || !accessToken) {
+        setVideoUploadError('You must be signed in to upload your video')
+        setTimeout(() => navigate('/signin'), 2000)
+        return false
+      }
+
+      if (!videoFile) {
+        setVideoUploadError('Please record or upload a video')
+        return false
+      }
+
+      // Validate file size (50MB)
+      const maxSize = 50 * 1024 * 1024
+      if (videoFile.size > maxSize) {
+        setVideoUploadError('File size must be less than 50MB')
+        return false
+      }
+
+      await api.uploadVideo(videoFile)
+      return true
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to upload video'
+      setVideoUploadError(errorMessage)
+      
+      if (errorMessage.includes('Session expired') || errorMessage.includes('sign in again')) {
+        setTimeout(() => {
+          navigate('/signin')
+        }, 2000)
+      }
+      
+      return false
+    } finally {
+      setIsUploadingVideo(false)
     }
   }
 
@@ -321,10 +433,32 @@ const Onboarding = () => {
 
   const [showCompletion, setShowCompletion] = useState(false)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    const videoFile = formData.videoFile || recordedVideo
+    if (!videoFile) {
+      setVideoUploadError('Please record or upload a video')
+      return
+    }
+
+    const uploaded = await uploadVideo(videoFile)
+    if (!uploaded) {
+      return
+    }
+
+    // Save video status
+    setOnboardingStatus(OnboardingStatus.VIDEO_UPLOADED)
     // Show completion screen
     setShowCompletion(true)
   }
+
+  // Cleanup video stream on unmount
+  useEffect(() => {
+    return () => {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [videoStream])
 
   const handleGoToDashboard = () => {
     // Complete onboarding
@@ -770,29 +904,104 @@ const Onboarding = () => {
                   <p className="text-sm text-slate-300">Record or upload a short video introducing yourself</p>
                 </div>
 
-                <div className="border-2 border-dashed border-white/30 rounded-xl p-8 text-center hover:border-indigo-400 transition bg-white/5">
-                  <i className="fa-solid fa-video text-4xl text-slate-300 mb-4"></i>
-                  <p className="text-sm font-semibold text-white mb-2">Upload your video introduction</p>
-                  <p className="text-xs text-slate-400 mb-4">MP4, MOV up to 50MB (Recommended: 1-2 minutes)</p>
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => handleFileChange(e, 'videoFile')}
-                    className="hidden"
-                    id="video-upload"
-                  />
-                  <label
-                    htmlFor="video-upload"
-                    className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 cursor-pointer transition"
-                  >
-                    Choose Video
-                  </label>
-                  {formData.videoFile && (
-                    <p className="mt-4 text-sm text-indigo-300">
-                      <i className="fa-solid fa-check-circle mr-2"></i>
-                      {formData.videoFile.name}
-                    </p>
-                  )}
+                {videoUploadError && (
+                  <ErrorMessage message={videoUploadError} />
+                )}
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Record Video Section */}
+                  <div className="border-2 border-dashed border-white/30 rounded-xl p-6 text-center hover:border-indigo-400 transition bg-white/5">
+                    <i className="fa-solid fa-video text-3xl text-slate-300 mb-3"></i>
+                    <h3 className="text-sm font-semibold text-white mb-2">Record Video</h3>
+                    <p className="text-xs text-slate-400 mb-4">Record directly from your camera</p>
+                    
+                    {!isRecording && !recordedVideo && (
+                      <button
+                        onClick={startRecording}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 cursor-pointer transition"
+                      >
+                        <i className="fa-solid fa-circle mr-2"></i>
+                        Start Recording
+                      </button>
+                    )}
+
+                    {isRecording && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-center gap-2 text-red-400">
+                          <i className="fa-solid fa-circle animate-pulse"></i>
+                          <span className="text-sm font-semibold">Recording...</span>
+                        </div>
+                        <button
+                          onClick={stopRecording}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 cursor-pointer transition"
+                        >
+                          <i className="fa-solid fa-stop mr-2"></i>
+                          Stop Recording
+                        </button>
+                      </div>
+                    )}
+
+                    {recordedVideo && !isRecording && (
+                      <div className="space-y-3">
+                        <p className="text-sm text-indigo-300">
+                          <i className="fa-solid fa-check-circle mr-2"></i>
+                          Video recorded ({Math.round(recordedVideo.size / 1024 / 1024 * 100) / 100} MB)
+                        </p>
+                        <video
+                          src={URL.createObjectURL(recordedVideo)}
+                          controls
+                          className="w-full max-h-48 rounded-lg"
+                        />
+                        <button
+                          onClick={() => {
+                            setRecordedVideo(null)
+                            setFormData(prev => ({ ...prev, videoFile: null }))
+                          }}
+                          className="px-3 py-1 bg-slate-600 text-white rounded text-xs hover:bg-slate-700"
+                        >
+                          Record Again
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload Video Section */}
+                  <div className="border-2 border-dashed border-white/30 rounded-xl p-6 text-center hover:border-indigo-400 transition bg-white/5">
+                    <i className="fa-solid fa-file-arrow-up text-3xl text-slate-300 mb-3"></i>
+                    <h3 className="text-sm font-semibold text-white mb-2">Upload Video</h3>
+                    <p className="text-xs text-slate-400 mb-4">MP4, MOV, WebM up to 50MB</p>
+                    <input
+                      type="file"
+                      accept="video/mp4,video/mov,video/webm"
+                      onChange={(e) => handleFileChange(e, 'videoFile')}
+                      className="hidden"
+                      id="video-upload"
+                    />
+                    <label
+                      htmlFor="video-upload"
+                      className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 cursor-pointer transition"
+                    >
+                      Choose Video File
+                    </label>
+                    {formData.videoFile && !recordedVideo && (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm text-indigo-300">
+                          <i className="fa-solid fa-check-circle mr-2"></i>
+                          {formData.videoFile.name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {(formData.videoFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                        {formData.videoFile.type.startsWith('video/') && (
+                          <video
+                            src={URL.createObjectURL(formData.videoFile)}
+                            controls
+                            className="w-full max-h-48 rounded-lg mt-2"
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -839,10 +1048,22 @@ const Onboarding = () => {
               ) : (
                 <button
                   onClick={handleSubmit}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition"
+                  disabled={isUploadingVideo}
+                  className={`px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition ${
+                    isUploadingVideo ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  Complete Setup
-                  <i className="fa-solid fa-check ml-2"></i>
+                  {isUploadingVideo ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin mr-2"></i>
+                      Uploading Video...
+                    </>
+                  ) : (
+                    <>
+                      Complete Setup
+                      <i className="fa-solid fa-check ml-2"></i>
+                    </>
+                  )}
                 </button>
               )}
             </div>
