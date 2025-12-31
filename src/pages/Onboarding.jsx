@@ -23,6 +23,8 @@ const Onboarding = () => {
   const [recordedVideo, setRecordedVideo] = useState(null)
   const [mediaRecorder, setMediaRecorder] = useState(null)
   const [videoStream, setVideoStream] = useState(null)
+  const [uploadedResumeId, setUploadedResumeId] = useState(null)
+  const [uploadedVideoId, setUploadedVideoId] = useState(null)
   const [formData, setFormData] = useState({
     // Step 1: Basic Information
     firstName: '',
@@ -64,6 +66,9 @@ const Onboarding = () => {
         try {
           const resumes = await api.getUserResumes()
           step2Complete = resumes && resumes.length > 0
+          if (resumes && resumes.length > 0) {
+            setUploadedResumeId(resumes[0].id)
+          }
         } catch (error) {
           console.error('Error checking resumes:', error)
         }
@@ -73,6 +78,9 @@ const Onboarding = () => {
         try {
           const videos = await api.getUserVideos()
           step3Complete = videos && videos.length > 0
+          if (videos && videos.length > 0) {
+            setUploadedVideoId(videos[0].id)
+          }
         } catch (error) {
           console.error('Error checking videos:', error)
         }
@@ -302,7 +310,8 @@ const Onboarding = () => {
         return false
       }
 
-      await api.uploadVideo(videoFile)
+      const result = await api.uploadVideo(videoFile)
+      setUploadedVideoId(result.id)
       return true
     } catch (error) {
       let errorMessage = error.message || 'Failed to upload video'
@@ -463,6 +472,7 @@ const Onboarding = () => {
       }
 
       const result = await api.uploadResume(formData.resumeFile)
+      setUploadedResumeId(result.id)
       return true
     } catch (error) {
       const errorMessage = error.message || 'Failed to upload resume'
@@ -536,8 +546,22 @@ const Onboarding = () => {
 
     // Save video status
     setOnboardingStatus(OnboardingStatus.VIDEO_UPLOADED)
-    // Show completion screen
-    setShowCompletion(true)
+
+    // Start analysis if we have both resume and video IDs
+    if (uploadedResumeId && uploadedVideoId) {
+      try {
+        const analysisRequest = await api.startAnalysis(uploadedResumeId, uploadedVideoId)
+        // Navigate to analysis status page
+        navigate(`/analysis/${analysisRequest.id}`, { replace: true })
+      } catch (error) {
+        console.error('Failed to start analysis:', error)
+        // Still show completion, user can start analysis later
+        setShowCompletion(true)
+      }
+    } else {
+      // Show completion screen if IDs not available
+      setShowCompletion(true)
+    }
   }
 
   // Cleanup video stream on unmount
