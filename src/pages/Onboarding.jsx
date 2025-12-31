@@ -539,29 +539,65 @@ const Onboarding = () => {
     }
 
     const videoFile = formData.videoFile || recordedVideo
-    const uploaded = await uploadVideo(videoFile)
-    if (!uploaded) {
-      return
-    }
+    
+    // Upload video
+    setIsUploadingVideo(true)
+    try {
+      const videoResult = await api.uploadVideo(videoFile)
+      setUploadedVideoId(videoResult.id)
+      
+      // Save video status
+      setOnboardingStatus(OnboardingStatus.VIDEO_UPLOADED)
 
-    // Save video status
-    setOnboardingStatus(OnboardingStatus.VIDEO_UPLOADED)
-
-    // Start analysis if we have both resume and video IDs
-    if (uploadedResumeId && uploadedVideoId) {
-      try {
-        const analysisRequest = await api.startAnalysis(uploadedResumeId, uploadedVideoId)
-        // Navigate to analysis status page
-        navigate(`/analysis/${analysisRequest.id}`, { replace: true })
-      } catch (error) {
-        console.error('Failed to start analysis:', error)
-        // Still show completion, user can start analysis later
-        setShowCompletion(true)
+      // Get resume ID if not already set
+      let resumeId = uploadedResumeId
+      if (!resumeId) {
+        try {
+          const resumes = await api.getUserResumes()
+          if (resumes && resumes.length > 0) {
+            resumeId = resumes[0].id
+            setUploadedResumeId(resumeId)
+          }
+        } catch (error) {
+          console.error('Error fetching resumes:', error)
+        }
       }
-    } else {
-      // Show completion screen if IDs not available
-      setShowCompletion(true)
+
+      // Start analysis if we have both resume and video IDs
+      if (resumeId && videoResult.id) {
+        try {
+          console.log('Starting analysis with resumeId:', resumeId, 'videoId:', videoResult.id)
+          const analysisRequest = await api.startAnalysis(resumeId, videoResult.id)
+          console.log('Analysis started successfully:', analysisRequest)
+          
+          // Navigate to analysis status page immediately
+          navigate(`/analysis/${analysisRequest.id}`, { replace: true })
+          return // Exit early - navigation will happen
+        } catch (error) {
+          console.error('Failed to start analysis:', error)
+          setVideoUploadError('Video uploaded successfully, but failed to start analysis: ' + (error.message || 'Unknown error'))
+        }
+      } else {
+        console.error('Missing IDs - resumeId:', resumeId, 'videoId:', videoResult.id)
+        setVideoUploadError('Unable to start analysis. Missing resume or video. Please ensure both are uploaded.')
+      }
+    } catch (error) {
+      console.error('Error uploading video:', error)
+      let errorMessage = error.message || 'Failed to upload video'
+      
+      // Handle specific error cases
+      if (errorMessage.includes('File too large') || errorMessage.includes('too large')) {
+        const fileSizeMB = (videoFile.size / 1024 / 1024).toFixed(2)
+        errorMessage = `Video file is too large (${fileSizeMB} MB). Maximum file size is 50 MB.`
+      }
+      
+      setVideoUploadError(errorMessage)
+    } finally {
+      setIsUploadingVideo(false)
     }
+
+    // Only show completion if we didn't navigate to analysis page
+    setShowCompletion(true)
   }
 
   // Cleanup video stream on unmount
