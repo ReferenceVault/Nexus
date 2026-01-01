@@ -1,14 +1,51 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
 const Header = ({
-  userMode = false,
-  userName = 'Alex Kim',
-  userAvatar = 'https://i.pravatar.cc/64?img=4',
-  activeNav = 'Job Matches',
-  onLogout = () => {},
+  userMode,
+  userName,
+  userAvatar,
+  activeNav,
+  onLogout,
 }) => {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { isAuthenticated, user, logout } = useAuth()
+  
+  // Determine if we should show user header
+  // 1. If userMode is explicitly set, use it
+  // 2. Otherwise, check if user is authenticated AND on a protected route
+  const isProtectedRoute = location.pathname.startsWith('/onboarding') || 
+                          location.pathname.startsWith('/user-dashboard') ||
+                          location.pathname.startsWith('/assessments') ||
+                          location.pathname.startsWith('/analysis') ||
+                          location.pathname.startsWith('/create-profile') ||
+                          location.pathname.startsWith('/import-profile') ||
+                          location.pathname.startsWith('/job-matches') ||
+                          location.pathname.startsWith('/job-details')
+  
+  const showUserHeader = userMode !== undefined 
+    ? userMode 
+    : (isAuthenticated && isProtectedRoute)
+  
+  // Don't highlight any menu on onboarding routes
+  const isOnboardingRoute = location.pathname.startsWith('/onboarding')
+  const effectiveActiveNav = isOnboardingRoute ? null : (activeNav || null)
+  
+  // Get user info from auth state
+  const displayName = userName || user?.firstName || user?.name || 'User'
+  const displayAvatar = userAvatar || user?.avatar || user?.picture || 'https://i.pravatar.cc/64?img=4'
+  
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout()
+    } else {
+      logout()
+      navigate('/signin')
+    }
+  }
+  
   return (
     <header id="header" className="bg-white shadow-sm border-b border-neutral-50 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
@@ -21,7 +58,7 @@ const Header = ({
           />
         </div>
 
-        {userMode ? (
+        {showUserHeader ? (
           <>
             {/* User nav */}
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-neutral-800">
@@ -36,7 +73,7 @@ const Header = ({
                 <button
                   key={item.name}
                   onClick={() => item.path !== '#' && navigate(item.path)}
-                  className={`pb-1 ${activeNav === item.name ? 'text-indigo-600 border-b-2 border-indigo-600' : 'hover:text-indigo-600 transition'}`}
+                  className={`pb-1 ${effectiveActiveNav === item.name ? 'text-indigo-600 border-b-2 border-indigo-600' : 'hover:text-indigo-600 transition'}`}
                 >
                   {item.name}
                 </button>
@@ -47,15 +84,15 @@ const Header = ({
             <div className="flex items-center gap-3 text-neutral-800">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
                 <img
-                  src={userAvatar}
-                  alt={userName}
+                  src={displayAvatar}
+                  alt={displayName}
                   className="h-8 w-8 rounded-full object-cover"
                 />
-                <span className="text-sm font-semibold">{userName}</span>
+                <span className="text-sm font-semibold">{displayName}</span>
               </div>
               <button
                 className="bg-white border border-slate-200 text-neutral-900 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-slate-50 transition"
-                onClick={onLogout}
+                onClick={handleLogout}
               >
                 Logout
               </button>
@@ -109,30 +146,15 @@ const Header = ({
                 </div>
                 Post a Job
               </button>
-              <button 
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2.5 py-1.5 rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-purple-700 transition flex items-center shadow-sm"
-                onClick={() => {
-                  // Check if user is logged in
-                  const accessToken = localStorage.getItem('accessToken')
-                  if (accessToken) {
-                    // User is logged in, go to dashboard
-                    navigate('/user-dashboard')
-                  } else {
-                    // No token, check if email exists in localStorage (user might have signed up before)
-                    const userEmail = localStorage.getItem('signupEmail')
-                    if (userEmail) {
-                      // User exists, redirect to signin
-                      navigate('/signin')
-                    } else {
-                      // New user, redirect to signup
-                      navigate('/signup')
-                    }
-                  }
-                }}
-              >
-                <i className="fa-solid fa-video w-3.5 h-3.5 mr-1.5"></i>
-                Upload Resume
-              </button>
+              {!isAuthenticated && (
+                <button 
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2.5 py-1.5 rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-purple-700 transition flex items-center shadow-sm"
+                  onClick={() => navigate('/signup')}
+                >
+                  <i className="fa-solid fa-video w-3.5 h-3.5 mr-1.5"></i>
+                  Upload Resume
+                </button>
+              )}
               <button className="lg:hidden text-neutral-900">
                 <i className="fa-solid fa-bars text-xl"></i>
               </button>

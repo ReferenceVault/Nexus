@@ -14,6 +14,8 @@ const Assessment = () => {
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [hasResume, setHasResume] = useState(false)
+  const [checkingResume, setCheckingResume] = useState(true)
 
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
@@ -21,22 +23,52 @@ const Assessment = () => {
       return
     }
 
-    const fetchAnalysis = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true)
         setError(null)
+        setCheckingResume(true)
 
+        // First, check if user has uploaded a resume
+        let userHasResume = false
+        try {
+          const resumes = await api.getUserResumes()
+          userHasResume = resumes && resumes.length > 0
+          setHasResume(userHasResume)
+        } catch (resumeErr) {
+          console.error('Error checking resumes:', resumeErr)
+          setHasResume(false)
+          userHasResume = false
+        } finally {
+          setCheckingResume(false)
+        }
+
+        // If no resume, don't try to fetch analysis
+        if (!userHasResume) {
+          setLoading(false)
+          return
+        }
+
+        // Fetch analysis
         let analysisData
-        if (id) {
-          // Fetch specific analysis by ID
-          analysisData = await api.getAnalysisResults(id)
-        } else {
-          // Fetch latest analysis
-          analysisData = await api.getLatestAnalysis()
+        try {
+          if (id) {
+            // Fetch specific analysis by ID
+            analysisData = await api.getAnalysisResults(id)
+          } else {
+            // Fetch latest analysis
+            analysisData = await api.getLatestAnalysis()
+          }
+        } catch (analysisErr) {
+          // If analysis not found, that's okay - show blank state
+          console.log('No analysis found:', analysisErr)
+          setLoading(false)
+          return
         }
 
         if (!analysisData) {
-          setError('No analysis found. Please complete onboarding first.')
+          // No analysis found, but user has resume - this is okay, show blank state
+          setLoading(false)
           return
         }
 
@@ -48,17 +80,20 @@ const Assessment = () => {
 
         setAnalysis(analysisData)
       } catch (err) {
-        console.error('Error fetching analysis:', err)
-        setError(err.message || 'Failed to load analysis results')
+        console.error('Error fetching data:', err)
+        // Don't set error if it's just "no analysis found" - show blank state instead
+        if (err.message && !err.message.includes('not found')) {
+          setError(err.message || 'Failed to load analysis results')
+        }
       } finally {
         setLoading(false)
       }
     }
 
-    fetchAnalysis()
+    fetchData()
   }, [id, isAuthenticated, accessToken, navigate])
 
-  if (loading) {
+  if (loading || checkingResume) {
     return (
       <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white min-h-screen flex items-center justify-center">
         <LoadingSpinner text="Loading analysis results..." />
@@ -69,7 +104,7 @@ const Assessment = () => {
   if (error) {
     return (
       <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white min-h-screen">
-        <Header userMode activeNav="Assessments" />
+        <Header activeNav="Assessments" />
         <div className="container mx-auto px-4 py-16">
           <ErrorMessage message={error} />
         </div>
@@ -78,13 +113,93 @@ const Assessment = () => {
     )
   }
 
-  if (!analysis || !analysis.overallReport) {
+  // Show blank state if no resume or no analysis
+  if (!hasResume || !analysis || !analysis.overallReport) {
     return (
-      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white min-h-screen">
-        <Header userMode activeNav="Assessments" />
-        <div className="container mx-auto px-4 py-16">
-          <ErrorMessage message="Analysis results are not available yet. Please wait for the analysis to complete." />
-        </div>
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white min-h-screen flex flex-col">
+        <Header activeNav="Assessments" />
+        <main className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="max-w-2xl mx-auto text-center">
+            {/* Animated Background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl" />
+              <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
+              <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl" />
+            </div>
+
+            <div className="relative">
+              {/* Icon */}
+              <div className="mx-auto mb-8 w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 backdrop-blur-sm border border-indigo-500/30 flex items-center justify-center shadow-xl">
+                <i className="fa-solid fa-file-circle-question text-5xl text-indigo-300"></i>
+              </div>
+
+              {/* Title */}
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+                {!hasResume ? 'No Resume Uploaded Yet' : 'No Analysis Available'}
+              </h1>
+
+              {/* Description */}
+              <p className="text-lg text-slate-300 mb-8 max-w-lg mx-auto">
+                {!hasResume 
+                  ? "You haven't uploaded your resume yet. Complete the onboarding process to get AI-powered feedback on your resume and video introduction."
+                  : "Your analysis results aren't ready yet. Complete the onboarding process to generate your personalized AI feedback."}
+              </p>
+
+              {/* Features List */}
+              <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-6 mb-8 text-left">
+                <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <i className="fa-solid fa-sparkles text-indigo-400"></i>
+                  What You'll Get:
+                </h2>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-check-circle text-emerald-400 mt-1"></i>
+                    <div>
+                      <div className="text-white font-medium">Resume Analysis</div>
+                      <div className="text-sm text-slate-400">Get detailed feedback on your resume quality, formatting, and content</div>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-check-circle text-emerald-400 mt-1"></i>
+                    <div>
+                      <div className="text-white font-medium">Video Introduction Review</div>
+                      <div className="text-sm text-slate-400">AI-powered analysis of your presentation and communication skills</div>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-check-circle text-emerald-400 mt-1"></i>
+                    <div>
+                      <div className="text-white font-medium">Personalized Recommendations</div>
+                      <div className="text-sm text-slate-400">Actionable tips to improve your profile and stand out to employers</div>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-check-circle text-emerald-400 mt-1"></i>
+                    <div>
+                      <div className="text-white font-medium">Skills Gap Analysis</div>
+                      <div className="text-sm text-slate-400">Discover which skills to add to boost your market value</div>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              {/* CTA Button */}
+              <button
+                onClick={() => navigate('/onboarding')}
+                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-lg font-semibold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40"
+              >
+                <i className="fa-solid fa-rocket"></i>
+                <span>Start Onboarding</span>
+                <i className="fa-solid fa-arrow-right"></i>
+              </button>
+
+              {/* Help Text */}
+              <p className="mt-6 text-sm text-slate-400">
+                Takes less than 5 minutes to complete
+              </p>
+            </div>
+          </div>
+        </main>
         <Footer />
       </div>
     )
