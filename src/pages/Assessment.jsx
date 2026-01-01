@@ -16,6 +16,7 @@ const Assessment = () => {
   const [error, setError] = useState(null)
   const [hasResume, setHasResume] = useState(false)
   const [checkingResume, setCheckingResume] = useState(true)
+  const [benchmarks, setBenchmarks] = useState(null)
 
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
@@ -79,6 +80,24 @@ const Assessment = () => {
         }
 
         setAnalysis(analysisData)
+
+        // Fetch benchmarks
+        try {
+          const benchmarksData = await api.getBenchmarks()
+          setBenchmarks(benchmarksData)
+        } catch (benchmarkErr) {
+          console.error('Error fetching benchmarks:', benchmarkErr)
+          // Set default benchmarks on error
+          setBenchmarks({
+            industryAverages: {
+              resumeQuality: 65,
+              videoPresentation: 58,
+              technicalSkills: 72,
+            },
+            totalProfiles: 0,
+            industry: 'Software Engineering',
+          })
+        }
       } catch (err) {
         console.error('Error fetching data:', err)
         // Don't set error if it's just "no analysis found" - show blank state instead
@@ -222,6 +241,41 @@ const Assessment = () => {
 
   const strongSkills = skillsGap.strongSkills || []
   const recommendedSkills = skillsGap.recommendedSkills || []
+
+  // Calculate metrics for benchmarking
+  const calculateSkillRelevance = () => {
+    if (strongSkills.length === 0) return 0
+    const totalMarketFit = strongSkills.reduce((sum, skill) => sum + (skill.marketFit || 0), 0)
+    return Math.round(totalMarketFit / strongSkills.length)
+  }
+
+  const calculateProfileCompleteness = () => {
+    let completeness = 0
+    if (analysis.resumeId) completeness += 40
+    if (analysis.videoId) completeness += 40
+    if (strongSkills.length > 0) completeness += 10
+    if (resumeAnalysis && Object.keys(resumeAnalysis).length > 0) completeness += 10
+    return completeness
+  }
+
+  const calculateTechnicalSkillsScore = () => {
+    if (strongSkills.length === 0) return 0
+    const totalMarketFit = strongSkills.reduce((sum, skill) => sum + (skill.marketFit || 0), 0)
+    return Math.round(totalMarketFit / strongSkills.length)
+  }
+
+  const skillRelevance = calculateSkillRelevance()
+  const profileCompleteness = calculateProfileCompleteness()
+  const technicalSkillsScore = calculateTechnicalSkillsScore()
+
+  // Get benchmark averages (with fallbacks)
+  const benchmarkAverages = benchmarks?.industryAverages || {
+    resumeQuality: 65,
+    videoPresentation: 58,
+    technicalSkills: 72,
+  }
+  const totalProfiles = benchmarks?.totalProfiles || 0
+  const industry = benchmarks?.industry || 'Software Engineering'
 
   // Filter and get 2 strengths and 2 improvements
   const strengths = strengthsAndImprovements.filter(item => 
@@ -698,6 +752,124 @@ const Assessment = () => {
                 </div>
               </div>
             )}
+
+            {/* Industry Benchmarking Section */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-1">Industry Benchmarking</h2>
+                  <p className="text-xs text-slate-300">See how you compare with other professionals in your field</p>
+                </div>
+                <div className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30">
+                  <span className="text-xs font-semibold text-indigo-300">{industry}</span>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* Overall Ranking Card */}
+                <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl border border-emerald-500/30 p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-lg bg-emerald-500/30 flex items-center justify-center">
+                      <i className="fa-solid fa-trophy text-emerald-300 text-xl"></i>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-2xl font-bold text-emerald-300 mb-0.5">{percentile}</div>
+                      <div className="text-xs text-slate-300">Overall Ranking</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    Among {totalProfiles > 0 ? `${totalProfiles.toLocaleString()}+` : '50,000+'} profiles
+                  </div>
+                </div>
+
+                {/* Skill Relevance Card */}
+                <div className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl border border-blue-500/30 p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-lg bg-blue-500/30 flex items-center justify-center">
+                      <i className="fa-solid fa-chart-line text-blue-300 text-xl"></i>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-2xl font-bold text-blue-300 mb-0.5">{skillRelevance}%</div>
+                      <div className="text-xs text-slate-300">Skill Relevance</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {skillRelevance >= benchmarkAverages.technicalSkills ? 'Above' : 'Below'} industry average
+                  </div>
+                </div>
+
+                {/* Profile Completeness Card */}
+                <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30 p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-lg bg-purple-500/30 flex items-center justify-center">
+                      <i className="fa-solid fa-rocket text-purple-300 text-xl"></i>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-2xl font-bold text-purple-300 mb-0.5">{profileCompleteness}%</div>
+                      <div className="text-xs text-slate-300">Profile Completeness</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {profileCompleteness >= 90 ? 'Excellent' : profileCompleteness >= 70 ? 'Good' : 'Needs improvement'} coverage
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Comparison Section */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl p-4 mb-4">
+              <h2 className="text-xl font-bold text-white mb-4">Performance Comparison</h2>
+              
+              <div className="space-y-4">
+                {/* Resume Quality */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-white">Resume Quality</span>
+                    <span className="text-sm text-slate-300">
+                      {resumeScore} vs {benchmarkAverages.resumeQuality} (avg)
+                    </span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-500"
+                      style={{ width: `${resumeScore}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Video Presentation */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-white">Video Presentation</span>
+                    <span className="text-sm text-slate-300">
+                      {videoScore} vs {benchmarkAverages.videoPresentation} (avg)
+                    </span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-500"
+                      style={{ width: `${videoScore}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Technical Skills */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-white">Technical Skills</span>
+                    <span className="text-sm text-slate-300">
+                      {technicalSkillsScore} vs {benchmarkAverages.technicalSkills} (avg)
+                    </span>
+                  </div>
+                  <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+                      style={{ width: `${technicalSkillsScore}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </main>

@@ -134,6 +134,11 @@ export const api = {
     return handleApiError(response)
   },
 
+  async getBenchmarks() {
+    const response = await authenticatedFetch('/analysis/benchmarks')
+    return handleApiError(response)
+  },
+
   // Generic authenticated request helper (now uses authenticatedFetch)
   async authenticatedRequest(url, options = {}) {
     const response = await authenticatedFetch(url, options)
