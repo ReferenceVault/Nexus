@@ -231,6 +231,8 @@ const Assessment = () => {
   const keyRecommendations = overallReport.keyRecommendations || []
   const strengthsAndImprovements = overallReport.strengthsAndImprovements || []
   const improvementRoadmap = overallReport.improvementRoadmap || {}
+  const marketInsights = overallReport.marketInsights || null
+  const hotSkillsAndTrends = overallReport.hotSkillsAndTrends || []
 
   const overallScore = analysis.overallScore || overallReport.overallScore || 0
   const resumeScore = overallReport.resumeScore || resumeAnalysis.overallScore || 0
@@ -872,6 +874,187 @@ const Assessment = () => {
               </div>
             </div>
 
+            {/* Market Insights & Hot Skills Section */}
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              {/* Market Insights */}
+              {marketInsights && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-white mb-1">Market Insights</h2>
+                      <p className="text-xs text-slate-300">Current trends and opportunities in your field</p>
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-lg border ${
+                      marketInsights.marketStatus === 'Growing Market' 
+                        ? 'bg-emerald-500/20 border-emerald-500/30' 
+                        : marketInsights.marketStatus === 'Stable Market'
+                        ? 'bg-blue-500/20 border-blue-500/30'
+                        : 'bg-red-500/20 border-red-500/30'
+                    }`}>
+                      <span className={`text-xs font-semibold ${
+                        marketInsights.marketStatus === 'Growing Market'
+                          ? 'text-emerald-300'
+                          : marketInsights.marketStatus === 'Stable Market'
+                          ? 'text-blue-300'
+                          : 'text-red-300'
+                      }`}>
+                        {marketInsights.marketStatus || 'Market Status'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {marketInsights.salaryInsights && (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-semibold text-white mb-3">Salary Insights</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-300">Your Expected Range</span>
+                          <span className="text-emerald-400 font-semibold">
+                            {marketInsights.salaryInsights.yourExpectedRange || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-300">Market Average</span>
+                          <span className="text-white font-semibold">
+                            {marketInsights.salaryInsights.marketAverage || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-300">Top 10%</span>
+                          <span className="text-white font-semibold">
+                            {marketInsights.salaryInsights.top10Percent || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-white/10">
+                          <span className="text-slate-300">Your Profile Strength</span>
+                          <span className={`font-semibold ${
+                            marketInsights.salaryInsights.yourProfileStrength === 'Above Average'
+                              ? 'text-emerald-400'
+                              : marketInsights.salaryInsights.yourProfileStrength === 'Average'
+                              ? 'text-yellow-400'
+                              : 'text-red-400'
+                          }`}>
+                            {marketInsights.salaryInsights.yourProfileStrength || 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {marketInsights.profileStrengthPoints && marketInsights.profileStrengthPoints.length > 0 && (
+                    <div className="space-y-2">
+                      {marketInsights.profileStrengthPoints.map((point, index) => (
+                        <div key={index} className="text-xs text-slate-300 bg-white/5 rounded-lg p-2 border border-white/10">
+                          {point}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Hot Skills & Trends */}
+              {hotSkillsAndTrends && hotSkillsAndTrends.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl p-4">
+                  <div className="mb-4">
+                    <h2 className="text-xl font-bold text-white mb-1">Hot Skills & Trends</h2>
+                    <p className="text-xs text-slate-300">Skills in high demand</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {hotSkillsAndTrends.map((skill, index) => (
+                      <div key={index} className="bg-white/5 rounded-lg border border-white/10 p-3">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {skill.status === 'Trending' && (
+                              <i className="fa-solid fa-fire text-red-400"></i>
+                            )}
+                            {skill.status === 'Growing' && (
+                              <i className="fa-solid fa-cloud text-blue-400"></i>
+                            )}
+                            {skill.status === 'Stable' && (
+                              <i className="fa-solid fa-check-circle text-emerald-400"></i>
+                            )}
+                            {skill.status === 'Declining' && (
+                              <i className="fa-solid fa-arrow-down text-slate-400"></i>
+                            )}
+                            <h3 className="text-sm font-semibold text-white">{skill.skill || 'Skill'}</h3>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            skill.status === 'Trending'
+                              ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                              : skill.status === 'Growing'
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : skill.status === 'Stable'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                          }`}>
+                            {skill.status || 'N/A'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 mb-2">{skill.description || ''}</p>
+                        {skill.demandIncrease && (
+                          <div className="flex items-center gap-1 text-xs text-emerald-400">
+                            <i className="fa-solid fa-arrow-up"></i>
+                            <span>+{skill.demandIncrease}% demand increase</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ready to Level Up Banner */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-400 rounded-2xl border border-purple-500/30 shadow-xl p-6 mb-4 relative overflow-hidden">
+              {/* Rocket Icon on Right */}
+              <div className="absolute right-6 top-1/2 -translate-y-1/2 hidden md:block">
+                <div className="w-24 h-24 rounded-full bg-purple-300/30 flex items-center justify-center">
+                  <i className="fa-solid fa-rocket text-white text-4xl"></i>
+                </div>
+              </div>
+
+              <div className="relative z-10 max-w-3xl">
+                <h2 className="text-3xl font-bold text-white mb-2">Ready to Level Up?</h2>
+                <p className="text-white/90 mb-6 text-sm">
+                  Follow our personalized roadmap to boost your profile score and land better opportunities.
+                </p>
+
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <i className="fa-solid fa-check text-white text-xs"></i>
+                    </div>
+                    <span className="text-white text-sm">Detailed improvement suggestions</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <i className="fa-solid fa-check text-white text-xs"></i>
+                    </div>
+                    <span className="text-white text-sm">Skill development recommendations</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <i className="fa-solid fa-check text-white text-xs"></i>
+                    </div>
+                    <span className="text-white text-sm">Market-aligned career guidance</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button className="bg-white text-purple-600 border border-purple-600 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-purple-50 transition flex items-center gap-2">
+                    <i className="fa-solid fa-play text-purple-600"></i>
+                    <span>Start Improvement Plan</span>
+                  </button>
+                  <button className="bg-purple-500 text-white border border-white/30 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-purple-600 transition flex items-center gap-2">
+                    <i className="fa-regular fa-calendar text-white"></i>
+                    <span>Schedule Coaching Call</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Improvement Roadmap Section */}
             {improvementRoadmap && (improvementRoadmap.highPriority?.length > 0 || improvementRoadmap.mediumPriority?.length > 0 || improvementRoadmap.lowPriority?.length > 0) && (
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl p-4 mb-4">
@@ -880,27 +1063,30 @@ const Assessment = () => {
                     <h2 className="text-xl font-bold text-white mb-1">Improvement Roadmap</h2>
                     <p className="text-xs text-slate-300">Prioritized action items to enhance your profile</p>
                   </div>
-                  <div className="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-500/30">
-                    <span className="text-xs font-semibold text-purple-300">2-3 weeks</span>
+                  <div className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30">
+                    <span className="text-xs font-semibold text-indigo-300">2-3 weeks</span>
                   </div>
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-4">
                   {/* High Priority (Week 1) */}
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                      <h3 className="text-sm font-bold text-white">High Priority</h3>
-                      <span className="text-xs text-slate-400">(Week 1)</span>
-                    </div>
+                    <h3 className="text-sm font-bold text-red-400 mb-3">High Priority (Week 1)</h3>
                     <div className="space-y-3">
                       {(improvementRoadmap.highPriority || []).map((item, index) => (
-                        <div key={index} className="bg-white/5 rounded-lg border border-red-500/20 p-3">
-                          <div className="font-semibold text-white text-sm mb-2">{item.actionTitle || 'Action Item'}</div>
+                        <div key={index} className="bg-white/5 rounded-lg border border-red-500/30 p-3">
+                          <div className="font-semibold text-white text-sm mb-1">{item.actionTitle || 'Action Item'}</div>
                           <div className="text-xs text-slate-300 mb-2">{item.description || ''}</div>
-                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <i className="fa-solid fa-clock text-xs"></i>
-                            <span>{item.estimatedTime || 'N/A'}</span>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1.5 text-slate-400">
+                              <i className="fa-regular fa-clock"></i>
+                              <span>{item.estimatedTime || 'N/A'}</span>
+                            </span>
+                            {item.estimatedPoints && (
+                              <span className="text-emerald-400 font-semibold">
+                                +{item.estimatedPoints} points
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -912,19 +1098,22 @@ const Assessment = () => {
 
                   {/* Medium Priority (Week 2) */}
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                      <h3 className="text-sm font-bold text-white">Medium Priority</h3>
-                      <span className="text-xs text-slate-400">(Week 2)</span>
-                    </div>
+                    <h3 className="text-sm font-bold text-yellow-400 mb-3">Medium Priority (Week 2)</h3>
                     <div className="space-y-3">
                       {(improvementRoadmap.mediumPriority || []).map((item, index) => (
-                        <div key={index} className="bg-white/5 rounded-lg border border-yellow-500/20 p-3">
-                          <div className="font-semibold text-white text-sm mb-2">{item.actionTitle || 'Action Item'}</div>
+                        <div key={index} className="bg-white/5 rounded-lg border border-yellow-500/30 p-3">
+                          <div className="font-semibold text-white text-sm mb-1">{item.actionTitle || 'Action Item'}</div>
                           <div className="text-xs text-slate-300 mb-2">{item.description || ''}</div>
-                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <i className="fa-solid fa-clock text-xs"></i>
-                            <span>{item.estimatedTime || 'N/A'}</span>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1.5 text-slate-400">
+                              <i className="fa-regular fa-clock"></i>
+                              <span>{item.estimatedTime || 'N/A'}</span>
+                            </span>
+                            {item.estimatedPoints && (
+                              <span className="text-emerald-400 font-semibold">
+                                +{item.estimatedPoints} points
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -936,19 +1125,22 @@ const Assessment = () => {
 
                   {/* Low Priority (Week 3) */}
                   <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                      <h3 className="text-sm font-bold text-white">Low Priority</h3>
-                      <span className="text-xs text-slate-400">(Week 3)</span>
-                    </div>
+                    <h3 className="text-sm font-bold text-blue-400 mb-3">Low Priority (Week 3)</h3>
                     <div className="space-y-3">
                       {(improvementRoadmap.lowPriority || []).map((item, index) => (
-                        <div key={index} className="bg-white/5 rounded-lg border border-blue-500/20 p-3">
-                          <div className="font-semibold text-white text-sm mb-2">{item.actionTitle || 'Action Item'}</div>
+                        <div key={index} className="bg-white/5 rounded-lg border border-blue-500/30 p-3">
+                          <div className="font-semibold text-white text-sm mb-1">{item.actionTitle || 'Action Item'}</div>
                           <div className="text-xs text-slate-300 mb-2">{item.description || ''}</div>
-                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <i className="fa-solid fa-clock text-xs"></i>
-                            <span>{item.estimatedTime || 'N/A'}</span>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1.5 text-slate-400">
+                              <i className="fa-regular fa-clock"></i>
+                              <span>{item.estimatedTime || 'N/A'}</span>
+                            </span>
+                            {item.estimatedPoints && (
+                              <span className="text-emerald-400 font-semibold">
+                                +{item.estimatedPoints} points
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}
