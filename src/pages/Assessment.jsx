@@ -230,6 +230,7 @@ const Assessment = () => {
   const skillsGap = overallReport.skillsGapAnalysis || {}
   const keyRecommendations = overallReport.keyRecommendations || []
   const strengthsAndImprovements = overallReport.strengthsAndImprovements || []
+  const improvementRoadmap = overallReport.improvementRoadmap || {}
 
   const overallScore = analysis.overallScore || overallReport.overallScore || 0
   const resumeScore = overallReport.resumeScore || resumeAnalysis.overallScore || 0
@@ -870,6 +871,95 @@ const Assessment = () => {
                 </div>
               </div>
             </div>
+
+            {/* Improvement Roadmap Section */}
+            {improvementRoadmap && (improvementRoadmap.highPriority?.length > 0 || improvementRoadmap.mediumPriority?.length > 0 || improvementRoadmap.lowPriority?.length > 0) && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl p-4 mb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white mb-1">Improvement Roadmap</h2>
+                    <p className="text-xs text-slate-300">Prioritized action items to enhance your profile</p>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-500/30">
+                    <span className="text-xs font-semibold text-purple-300">2-3 weeks</span>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  {/* High Priority (Week 1) */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                      <h3 className="text-sm font-bold text-white">High Priority</h3>
+                      <span className="text-xs text-slate-400">(Week 1)</span>
+                    </div>
+                    <div className="space-y-3">
+                      {(improvementRoadmap.highPriority || []).map((item, index) => (
+                        <div key={index} className="bg-white/5 rounded-lg border border-red-500/20 p-3">
+                          <div className="font-semibold text-white text-sm mb-2">{item.actionTitle || 'Action Item'}</div>
+                          <div className="text-xs text-slate-300 mb-2">{item.description || ''}</div>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <i className="fa-solid fa-clock text-xs"></i>
+                            <span>{item.estimatedTime || 'N/A'}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {(!improvementRoadmap.highPriority || improvementRoadmap.highPriority.length === 0) && (
+                        <div className="text-xs text-slate-400 text-center py-4">No high priority items</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Medium Priority (Week 2) */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                      <h3 className="text-sm font-bold text-white">Medium Priority</h3>
+                      <span className="text-xs text-slate-400">(Week 2)</span>
+                    </div>
+                    <div className="space-y-3">
+                      {(improvementRoadmap.mediumPriority || []).map((item, index) => (
+                        <div key={index} className="bg-white/5 rounded-lg border border-yellow-500/20 p-3">
+                          <div className="font-semibold text-white text-sm mb-2">{item.actionTitle || 'Action Item'}</div>
+                          <div className="text-xs text-slate-300 mb-2">{item.description || ''}</div>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <i className="fa-solid fa-clock text-xs"></i>
+                            <span>{item.estimatedTime || 'N/A'}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {(!improvementRoadmap.mediumPriority || improvementRoadmap.mediumPriority.length === 0) && (
+                        <div className="text-xs text-slate-400 text-center py-4">No medium priority items</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Low Priority (Week 3) */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      <h3 className="text-sm font-bold text-white">Low Priority</h3>
+                      <span className="text-xs text-slate-400">(Week 3)</span>
+                    </div>
+                    <div className="space-y-3">
+                      {(improvementRoadmap.lowPriority || []).map((item, index) => (
+                        <div key={index} className="bg-white/5 rounded-lg border border-blue-500/20 p-3">
+                          <div className="font-semibold text-white text-sm mb-2">{item.actionTitle || 'Action Item'}</div>
+                          <div className="text-xs text-slate-300 mb-2">{item.description || ''}</div>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <i className="fa-solid fa-clock text-xs"></i>
+                            <span>{item.estimatedTime || 'N/A'}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {(!improvementRoadmap.lowPriority || improvementRoadmap.lowPriority.length === 0) && (
+                        <div className="text-xs text-slate-400 text-center py-4">No low priority items</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </main>
