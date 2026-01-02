@@ -111,6 +111,16 @@ export const api = {
     return handleApiError(response)
   },
 
+  async getResumePresignedUrl(resumeId) {
+    const response = await authenticatedFetch(`/resumes/${resumeId}/presigned-url`)
+    return handleApiError(response)
+  },
+
+  async getVideoPresignedUrl(videoId) {
+    const response = await authenticatedFetch(`/videos/${videoId}/presigned-url`)
+    return handleApiError(response)
+  },
+
   async startAnalysis(resumeId, videoId) {
     const response = await authenticatedFetch('/analysis/start', {
       method: 'POST',

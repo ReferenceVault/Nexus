@@ -61,7 +61,9 @@ const Header = ({
   const effectiveActiveNav = isOnboardingRoute ? null : (activeNav || null)
   
   // Disable navigation if onboarding is not complete
-  const canNavigate = onboardingComplete === true || isOnboardingRoute
+  // Only allow navigation if onboarding is explicitly complete (true)
+  // Block if null (checking), false (incomplete), or undefined
+  const canNavigate = onboardingComplete === true
   
   // Get user info from auth state
   const displayName = userName || user?.firstName || user?.name || 'User'
@@ -80,7 +82,12 @@ const Header = ({
     <header id="header" className="bg-white shadow-sm border-b border-neutral-50 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
+        <div 
+          className="flex items-center cursor-pointer hover:opacity-80 transition" 
+          onClick={() => {
+            navigate('/')
+          }}
+        >
           <img
             src="/logo.jpeg"
             alt="Logo"
@@ -100,28 +107,42 @@ const Header = ({
                 { name: 'Messages', path: '#' },
                 { name: 'Profile', path: '#' }
               ].map((item) => {
-                const isDisabled = !canNavigate && item.path !== '#' && !isOnboardingRoute
+                // Disable ALL menu items if onboarding is not explicitly complete
+                // Only enable if onboardingComplete === true
+                const isDisabled = onboardingComplete !== true
+                const isComingSoon = item.path === '#'
                 return (
                   <button
                     key={item.name}
-                    onClick={() => {
-                      if (!isDisabled && item.path !== '#') {
-                        if (canNavigate || isOnboardingRoute) {
-                          navigate(item.path)
-                        } else {
-                          navigate('/onboarding')
-                        }
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      
+                      // If onboarding not complete, redirect to onboarding
+                      if (isDisabled) {
+                        navigate('/onboarding', { replace: true })
+                        return
                       }
+                      
+                      // If coming soon, do nothing (but button is still enabled for visual consistency)
+                      if (isComingSoon) {
+                        return
+                      }
+                      
+                      // Navigate to the path
+                      navigate(item.path)
                     }}
                     disabled={isDisabled}
                     className={`pb-1 ${
                       isDisabled 
-                        ? 'text-neutral-400 cursor-not-allowed opacity-50' 
+                        ? 'text-neutral-400 cursor-not-allowed opacity-50 pointer-events-auto' 
                         : effectiveActiveNav === item.name 
                           ? 'text-indigo-600 border-b-2 border-indigo-600' 
-                          : 'hover:text-indigo-600 transition'
+                          : isComingSoon
+                            ? 'text-neutral-600 opacity-90 cursor-default hover:text-neutral-800'
+                            : 'hover:text-indigo-600 transition cursor-pointer text-neutral-800'
                     }`}
-                    title={isDisabled ? 'Complete onboarding to access this page' : ''}
+                    title={isDisabled ? 'Complete onboarding (upload resume and video) to access this page' : isComingSoon ? 'Coming soon' : ''}
                   >
                     {item.name}
                   </button>

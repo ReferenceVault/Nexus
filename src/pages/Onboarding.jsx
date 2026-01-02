@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Header from '../components/Header'
-import { setOnboardingStatus, OnboardingStatus, completeOnboarding, getOnboardingStatus } from '../utils/onboarding'
+import { setOnboardingStatus, OnboardingStatus, completeOnboarding, getOnboardingStatus, checkOnboardingComplete } from '../utils/onboarding'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../utils/api'
 import ErrorMessage from '../components/common/ErrorMessage'
@@ -9,6 +9,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner'
 
 const Onboarding = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { signupData, user, updateUser, accessToken, isAuthenticated } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
   const [errors, setErrors] = useState({})
@@ -26,6 +27,7 @@ const Onboarding = () => {
   const [uploadedResumeId, setUploadedResumeId] = useState(null)
   const [uploadedResumeInfo, setUploadedResumeInfo] = useState(null) // Store resume file info
   const [uploadedVideoId, setUploadedVideoId] = useState(null)
+  const [uploadedVideoInfo, setUploadedVideoInfo] = useState(null) // Store video file info
   const [formData, setFormData] = useState({
     // Step 1: Basic Information
     firstName: '',
@@ -42,6 +44,35 @@ const Onboarding = () => {
     // Step 3: Video
     videoFile: null
   })
+
+  // Prevent browser back navigation during onboarding
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken) {
+      return
+    }
+
+    // Push state to prevent back navigation
+    window.history.pushState(null, '', '/onboarding')
+    
+    const handlePopState = (e) => {
+      // Check if onboarding is complete before allowing navigation
+      checkOnboardingComplete(api).then((complete) => {
+        if (!complete) {
+          // Force user to stay on onboarding - push state again
+          window.history.pushState(null, '', '/onboarding')
+        }
+      }).catch(() => {
+        // On error, keep user on onboarding
+        window.history.pushState(null, '', '/onboarding')
+      })
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [isAuthenticated, accessToken])
 
   useEffect(() => {
     // Check onboarding progress and set current step
@@ -70,12 +101,25 @@ const Onboarding = () => {
           if (resumes && resumes.length > 0) {
             const resume = resumes[0]
             setUploadedResumeId(resume.id)
-            // Store resume info to display when user returns to step 2
-            setUploadedResumeInfo({
-              fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
-              fileType: resume.fileType || 'PDF',
-              uploadedAt: resume.createdAt
-            })
+            // Fetch presigned URL for the resume
+            try {
+              const presignedUrlResponse = await api.getResumePresignedUrl(resume.id)
+              // Store resume info to display when user returns to step 2
+              setUploadedResumeInfo({
+                fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
+                fileType: resume.fileType || 'PDF',
+                uploadedAt: resume.createdAt,
+                presignedUrl: presignedUrlResponse.presignedUrl
+              })
+            } catch (presignedError) {
+              console.error('Error fetching presigned URL for resume:', presignedError)
+              // Store without presigned URL if fetch fails
+              setUploadedResumeInfo({
+                fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
+                fileType: resume.fileType || 'PDF',
+                uploadedAt: resume.createdAt
+              })
+            }
           }
         } catch (error) {
           console.error('Error checking resumes:', error)
@@ -87,7 +131,27 @@ const Onboarding = () => {
           const videos = await api.getUserVideos()
           step3Complete = videos && videos.length > 0
           if (videos && videos.length > 0) {
-            setUploadedVideoId(videos[0].id)
+            const video = videos[0]
+            setUploadedVideoId(video.id)
+            // Fetch presigned URL for the video
+            try {
+              const presignedUrlResponse = await api.getVideoPresignedUrl(video.id)
+              // Store video info to display when user returns to step 3
+              setUploadedVideoInfo({
+                fileName: video.fileUrl?.split('/').pop() || 'video.mp4',
+                fileType: video.fileType || 'MP4',
+                uploadedAt: video.createdAt,
+                presignedUrl: presignedUrlResponse.presignedUrl
+              })
+            } catch (presignedError) {
+              console.error('Error fetching presigned URL for video:', presignedError)
+              // Store without presigned URL if fetch fails
+              setUploadedVideoInfo({
+                fileName: video.fileUrl?.split('/').pop() || 'video.mp4',
+                fileType: video.fileType || 'MP4',
+                uploadedAt: video.createdAt
+              })
+            }
           }
         } catch (error) {
           console.error('Error checking videos:', error)
@@ -128,6 +192,16 @@ const Onboarding = () => {
           initialStep = step2Complete ? 3 : 2
         }
 
+        // Check if step is specified in URL query params (for direct navigation from dashboard)
+        const stepParam = searchParams.get('step')
+        if (stepParam) {
+          const stepNum = parseInt(stepParam, 10)
+          if (stepNum >= 1 && stepNum <= 3) {
+            // Override initial step with URL parameter
+            initialStep = stepNum
+          }
+        }
+
         setCurrentStep(initialStep)
       } catch (error) {
         console.error('Error checking onboarding progress:', error)
@@ -155,11 +229,23 @@ const Onboarding = () => {
           if (resumes && resumes.length > 0) {
             const resume = resumes[0]
             setUploadedResumeId(resume.id)
-            setUploadedResumeInfo({
-              fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
-              fileType: resume.fileType || 'PDF',
-              uploadedAt: resume.createdAt
-            })
+            // Fetch presigned URL for the resume
+            try {
+              const presignedUrlResponse = await api.getResumePresignedUrl(resume.id)
+              setUploadedResumeInfo({
+                fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
+                fileType: resume.fileType || 'PDF',
+                uploadedAt: resume.createdAt,
+                presignedUrl: presignedUrlResponse.presignedUrl
+              })
+            } catch (presignedError) {
+              console.error('Error fetching presigned URL for resume:', presignedError)
+              setUploadedResumeInfo({
+                fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
+                fileType: resume.fileType || 'PDF',
+                uploadedAt: resume.createdAt
+              })
+            }
           }
         } catch (error) {
           console.error('Error checking resumes:', error)
@@ -286,6 +372,12 @@ const Onboarding = () => {
   }
 
   const validateStep3 = () => {
+    // Allow validation to pass if video is already uploaded (user returning to step 3)
+    if (uploadedVideoId) {
+      setVideoUploadError(null)
+      return true
+    }
+
     const videoToUpload = recordedVideo || formData.videoFile
     if (!videoToUpload) {
       setVideoUploadError('Please record or upload your video introduction')
@@ -576,65 +668,93 @@ const Onboarding = () => {
       return
     }
 
-    const videoFile = formData.videoFile || recordedVideo
-    
-    // Upload video
-    setIsUploadingVideo(true)
-    try {
-      const videoResult = await api.uploadVideo(videoFile)
-      setUploadedVideoId(videoResult.id)
+    let videoId = uploadedVideoId
+
+    // Only upload if there's a new file (not already uploaded)
+    if (!videoId && (formData.videoFile || recordedVideo)) {
+      const videoFile = formData.videoFile || recordedVideo
       
-      // Save video status
-      setOnboardingStatus(OnboardingStatus.VIDEO_UPLOADED)
-
-      // Get resume ID if not already set
-      let resumeId = uploadedResumeId
-      if (!resumeId) {
-        try {
-          const resumes = await api.getUserResumes()
-          if (resumes && resumes.length > 0) {
-            resumeId = resumes[0].id
-            setUploadedResumeId(resumeId)
-          }
-        } catch (error) {
-          console.error('Error fetching resumes:', error)
+      // Upload video
+      setIsUploadingVideo(true)
+      try {
+        const videoResult = await api.uploadVideo(videoFile)
+        videoId = videoResult.id
+        setUploadedVideoId(videoId)
+        
+        // Update video info
+        setUploadedVideoInfo({
+          fileName: videoResult.fileUrl?.split('/').pop() || 'video.mp4',
+          fileType: 'MP4',
+          uploadedAt: new Date(),
+          fileUrl: videoResult.fileUrl
+        })
+      } catch (error) {
+        const errorMessage = error.message || 'Failed to upload video'
+        setVideoUploadError(errorMessage)
+        
+        if (errorMessage.includes('Session expired') || errorMessage.includes('sign in again')) {
+          setTimeout(() => {
+            navigate('/signin')
+          }, 2000)
         }
+        
+        setIsUploadingVideo(false)
+        return
+      } finally {
+        setIsUploadingVideo(false)
       }
+    }
 
-      // Start analysis if we have both resume and video IDs
-      if (resumeId && videoResult.id) {
-        try {
-          console.log('Starting analysis with resumeId:', resumeId, 'videoId:', videoResult.id)
-          const analysisRequest = await api.startAnalysis(resumeId, videoResult.id)
-          console.log('Analysis started successfully:', analysisRequest)
-          
+    // If video already exists, fetch it
+    if (!videoId) {
+      try {
+        const videos = await api.getUserVideos()
+        if (videos && videos.length > 0) {
+          videoId = videos[0].id
+          setUploadedVideoId(videoId)
+        }
+      } catch (error) {
+        console.error('Error fetching videos:', error)
+      }
+    }
+    
+    // Save video status
+    setOnboardingStatus(OnboardingStatus.VIDEO_UPLOADED)
+
+    // Get resume ID if not already set
+    let resumeId = uploadedResumeId
+    if (!resumeId) {
+      try {
+        const resumes = await api.getUserResumes()
+        if (resumes && resumes.length > 0) {
+          resumeId = resumes[0].id
+          setUploadedResumeId(resumeId)
+        }
+      } catch (error) {
+        console.error('Error fetching resumes:', error)
+      }
+    }
+
+    // Start analysis if we have both resume and video IDs
+    if (resumeId && videoId) {
+      try {
+        console.log('Starting analysis with resumeId:', resumeId, 'videoId:', videoId)
+        const analysisRequest = await api.startAnalysis(resumeId, videoId)
+        console.log('Analysis started successfully:', analysisRequest)
+        
     // Complete onboarding
     completeOnboarding()
-          
-          // Navigate to analysis status page
-          navigate(`/analysis/${analysisRequest.id}`, { replace: true })
-          return // Exit early - navigation will happen
-        } catch (error) {
-          console.error('Failed to start analysis:', error)
-          setVideoUploadError('Video uploaded successfully, but failed to start analysis: ' + (error.message || 'Unknown error'))
-        }
-      } else {
-        console.error('Missing IDs - resumeId:', resumeId, 'videoId:', videoResult.id)
-        setVideoUploadError('Unable to start analysis. Missing resume or video. Please ensure both are uploaded.')
+        
+        // Navigate to analysis status page
+        navigate(`/analysis/${analysisRequest.id}`, { replace: true })
+        return // Exit early - navigation will happen
+      } catch (error) {
+        console.error('Failed to start analysis:', error)
+        setVideoUploadError('Video uploaded successfully, but failed to start analysis: ' + (error.message || 'Unknown error'))
       }
-    } catch (error) {
-      console.error('Error uploading video:', error)
-      let errorMessage = error.message || 'Failed to upload video'
-      
-      // Handle specific error cases
-      if (errorMessage.includes('File too large') || errorMessage.includes('too large')) {
-        const fileSizeMB = (videoFile.size / 1024 / 1024).toFixed(2)
-        errorMessage = `Video file is too large (${fileSizeMB} MB). Maximum file size is 50 MB.`
-      }
-      
-      setVideoUploadError(errorMessage)
-    } finally {
-      setIsUploadingVideo(false)
+    } else {
+      console.error('Missing IDs - resumeId:', resumeId, 'videoId:', videoId)
+      setVideoUploadError('Unable to start analysis. Missing resume or video. Please ensure both are uploaded.')
     }
   }
 
@@ -915,12 +1035,30 @@ const Onboarding = () => {
                   </label>
                   {(formData.resumeFile || uploadedResumeInfo) && (
                     <div className="mt-4 p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
-                      <p className="text-sm text-emerald-300 flex items-center justify-center">
-                      <i className="fa-solid fa-check-circle mr-2"></i>
+                      <p className="text-sm text-emerald-300 flex items-center justify-center mb-2">
+                        <i className="fa-solid fa-check-circle mr-2"></i>
                         {formData.resumeFile ? formData.resumeFile.name : uploadedResumeInfo?.fileName || 'Resume uploaded'}
-                    </p>
+                      </p>
+                      {uploadedResumeInfo && !formData.resumeFile && uploadedResumeInfo.presignedUrl && (
+                        <div className="mt-2">
+                          <iframe
+                            src={uploadedResumeInfo.presignedUrl}
+                            className="w-full h-64 rounded-lg border border-emerald-500/30"
+                            title="Resume Preview"
+                          />
+                          <a
+                            href={uploadedResumeInfo.presignedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-emerald-300 hover:text-emerald-200 mt-2 inline-block"
+                          >
+                            <i className="fa-solid fa-download mr-1"></i>
+                            Download Resume
+                          </a>
+                        </div>
+                      )}
                       {uploadedResumeInfo && !formData.resumeFile && (
-                        <p className="text-xs text-emerald-400/80 mt-1">
+                        <p className="text-xs text-emerald-400/80 mt-2 text-center">
                           Resume already uploaded. You can upload a new one to replace it.
                         </p>
                       )}
@@ -1017,26 +1155,58 @@ const Onboarding = () => {
                     htmlFor="video-upload"
                     className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 cursor-pointer transition"
                   >
-                      Choose Video File
+                    {uploadedVideoInfo ? 'Change Video File' : 'Choose Video File'}
                   </label>
-                    {formData.videoFile && !recordedVideo && (
-                      <div className="mt-4 space-y-2">
-                        <p className="text-sm text-indigo-300">
-                      <i className="fa-solid fa-check-circle mr-2"></i>
-                      {formData.videoFile.name}
-                    </p>
-                        <p className="text-xs text-slate-400">
-                          {(formData.videoFile.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                        {formData.videoFile.type.startsWith('video/') && (
-                          <video
-                            src={URL.createObjectURL(formData.videoFile)}
-                            controls
-                            className="w-full max-h-48 rounded-lg mt-2"
-                          />
-                        )}
+                    {(formData.videoFile || uploadedVideoInfo) && !recordedVideo && (
+                      <div className="mt-4 p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
+                        {formData.videoFile ? (
+                          <div className="space-y-2">
+                            <p className="text-sm text-emerald-300 flex items-center justify-center">
+                              <i className="fa-solid fa-check-circle mr-2"></i>
+                              {formData.videoFile.name}
+                            </p>
+                            <p className="text-xs text-slate-400 text-center">
+                              {(formData.videoFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                            {formData.videoFile.type.startsWith('video/') && (
+                              <video
+                                src={URL.createObjectURL(formData.videoFile)}
+                                controls
+                                className="w-full max-h-48 rounded-lg mt-2"
+                              />
+                            )}
+                          </div>
+                        ) : uploadedVideoInfo ? (
+                          <div>
+                            <p className="text-sm text-emerald-300 flex items-center justify-center mb-2">
+                              <i className="fa-solid fa-check-circle mr-2"></i>
+                              {uploadedVideoInfo.fileName || 'Video uploaded'}
+                            </p>
+                            {uploadedVideoInfo.presignedUrl && (
+                              <div className="mt-2">
+                                <video
+                                  src={uploadedVideoInfo.presignedUrl}
+                                  controls
+                                  className="w-full max-h-48 rounded-lg"
+                                />
+                                <a
+                                  href={uploadedVideoInfo.presignedUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-emerald-300 hover:text-emerald-200 mt-2 inline-block"
+                                >
+                                  <i className="fa-solid fa-download mr-1"></i>
+                                  Download Video
+                                </a>
+                              </div>
+                            )}
+                            <p className="text-xs text-emerald-400/80 mt-2 text-center">
+                              Video already uploaded. You can upload a new one to replace it.
+                            </p>
+                          </div>
+                        ) : null}
                       </div>
-                  )}
+                    )}
                   </div>
                 </div>
               </div>

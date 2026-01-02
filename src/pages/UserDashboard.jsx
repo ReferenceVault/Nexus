@@ -182,11 +182,17 @@ const UserDashboard = () => {
                   <i className="fa-solid fa-pen text-indigo-300"></i>
                   <span>Update profile</span>
                 </button>
-                <button className="w-full text-left px-3 py-2 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 flex items-center space-x-2 text-sm text-white transition">
+                <button 
+                  className="w-full text-left px-3 py-2 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 flex items-center space-x-2 text-sm text-white transition"
+                  onClick={() => navigate('/onboarding?step=2')}
+                >
                   <i className="fa-solid fa-paperclip text-indigo-300"></i>
                   <span>Upload resume</span>
                 </button>
-                <button className="w-full text-left px-3 py-2 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 flex items-center space-x-2 text-sm text-white transition">
+                <button 
+                  className="w-full text-left px-3 py-2 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 flex items-center space-x-2 text-sm text-white transition"
+                  onClick={() => navigate('/onboarding?step=3')}
+                >
                   <i className="fa-solid fa-video text-indigo-300"></i>
                   <span>Upload video introduction</span>
                 </button>
