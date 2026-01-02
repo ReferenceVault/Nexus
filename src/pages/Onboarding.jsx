@@ -24,6 +24,7 @@ const Onboarding = () => {
   const [mediaRecorder, setMediaRecorder] = useState(null)
   const [videoStream, setVideoStream] = useState(null)
   const [uploadedResumeId, setUploadedResumeId] = useState(null)
+  const [uploadedResumeInfo, setUploadedResumeInfo] = useState(null) // Store resume file info
   const [uploadedVideoId, setUploadedVideoId] = useState(null)
   const [formData, setFormData] = useState({
     // Step 1: Basic Information
@@ -67,7 +68,14 @@ const Onboarding = () => {
           const resumes = await api.getUserResumes()
           step2Complete = resumes && resumes.length > 0
           if (resumes && resumes.length > 0) {
-            setUploadedResumeId(resumes[0].id)
+            const resume = resumes[0]
+            setUploadedResumeId(resume.id)
+            // Store resume info to display when user returns to step 2
+            setUploadedResumeInfo({
+              fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
+              fileType: resume.fileType || 'PDF',
+              uploadedAt: resume.createdAt
+            })
           }
         } catch (error) {
           console.error('Error checking resumes:', error)
@@ -98,8 +106,8 @@ const Onboarding = () => {
 
         // Prefill form data from user profile
         if (userProfile) {
-          setFormData(prev => ({
-            ...prev,
+      setFormData(prev => ({
+        ...prev,
             firstName: userProfile.firstName || prev.firstName,
             lastName: userProfile.lastName || prev.lastName,
             email: userProfile.email || prev.email,
@@ -109,7 +117,7 @@ const Onboarding = () => {
             state: userProfile.addressInformation?.state || prev.state,
             zipCode: userProfile.addressInformation?.zipCode || prev.zipCode,
             country: userProfile.addressInformation?.country || prev.country,
-          }))
+      }))
         }
 
         // Also check localStorage status as fallback
@@ -129,7 +137,7 @@ const Onboarding = () => {
           setCurrentStep(3)
         } else if (savedStatus === OnboardingStatus.BASIC_INFO) {
           setCurrentStep(2)
-        }
+    }
       } finally {
         setIsLoadingProgress(false)
       }
@@ -137,6 +145,30 @@ const Onboarding = () => {
 
     checkOnboardingProgress()
   }, [isAuthenticated, accessToken, signupData, user])
+
+  // Check for uploaded resume when navigating to step 2
+  useEffect(() => {
+    const checkUploadedResume = async () => {
+      if (currentStep === 2 && isAuthenticated && accessToken && !uploadedResumeInfo) {
+        try {
+          const resumes = await api.getUserResumes()
+          if (resumes && resumes.length > 0) {
+            const resume = resumes[0]
+            setUploadedResumeId(resume.id)
+            setUploadedResumeInfo({
+              fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
+              fileType: resume.fileType || 'PDF',
+              uploadedAt: resume.createdAt
+            })
+          }
+        } catch (error) {
+          console.error('Error checking resumes:', error)
+    }
+      }
+    }
+
+    checkUploadedResume()
+  }, [currentStep, isAuthenticated, accessToken, uploadedResumeInfo])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -436,6 +468,12 @@ const Onboarding = () => {
   }
 
   const validateStep2 = () => {
+    // Allow validation to pass if resume is already uploaded (user returning to step 2)
+    if (uploadedResumeId) {
+      setResumeUploadError(null)
+      return true
+    }
+
     if (!formData.resumeFile) {
       setResumeUploadError('Please upload your resume')
       return false
@@ -511,10 +549,13 @@ const Onboarding = () => {
         return
       }
 
-      // Upload resume to S3
-      const uploaded = await uploadResume()
-      if (!uploaded) {
-        return
+      // Only upload if there's a new file (not already uploaded)
+      if (formData.resumeFile && !uploadedResumeId) {
+        // Upload resume to S3
+        const uploaded = await uploadResume()
+        if (!uploaded) {
+          return
+        }
       }
 
       // Save resume status
@@ -567,8 +608,8 @@ const Onboarding = () => {
           const analysisRequest = await api.startAnalysis(resumeId, videoResult.id)
           console.log('Analysis started successfully:', analysisRequest)
           
-          // Complete onboarding
-          completeOnboarding()
+    // Complete onboarding
+    completeOnboarding()
           
           // Navigate to analysis status page
           navigate(`/analysis/${analysisRequest.id}`, { replace: true })
@@ -602,7 +643,7 @@ const Onboarding = () => {
     return () => {
       if (videoStream) {
         videoStream.getTracks().forEach(track => track.stop())
-      }
+  }
     }
   }, [videoStream])
 
@@ -870,13 +911,20 @@ const Onboarding = () => {
                     htmlFor="resume-upload"
                     className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 cursor-pointer transition"
                   >
-                    Choose File
+                    {uploadedResumeId ? 'Change File' : 'Choose File'}
                   </label>
-                  {formData.resumeFile && (
-                    <p className="mt-4 text-sm text-indigo-300">
+                  {(formData.resumeFile || uploadedResumeInfo) && (
+                    <div className="mt-4 p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
+                      <p className="text-sm text-emerald-300 flex items-center justify-center">
                       <i className="fa-solid fa-check-circle mr-2"></i>
-                      {formData.resumeFile.name}
+                        {formData.resumeFile ? formData.resumeFile.name : uploadedResumeInfo?.fileName || 'Resume uploaded'}
                     </p>
+                      {uploadedResumeInfo && !formData.resumeFile && (
+                        <p className="text-xs text-emerald-400/80 mt-1">
+                          Resume already uploaded. You can upload a new one to replace it.
+                        </p>
+                      )}
+                    </div>
                   )}
                   {resumeUploadError && (
                     <ErrorMessage message={resumeUploadError} />
@@ -958,25 +1006,25 @@ const Onboarding = () => {
                     <i className="fa-solid fa-file-arrow-up text-3xl text-slate-300 mb-3"></i>
                     <h3 className="text-sm font-semibold text-white mb-2">Upload Video</h3>
                     <p className="text-xs text-slate-400 mb-4">MP4, MOV, WebM up to 50MB</p>
-                    <input
-                      type="file"
+                  <input
+                    type="file"
                       accept="video/mp4,video/mov,video/webm"
-                      onChange={(e) => handleFileChange(e, 'videoFile')}
-                      className="hidden"
-                      id="video-upload"
-                    />
-                    <label
-                      htmlFor="video-upload"
-                      className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 cursor-pointer transition"
-                    >
+                    onChange={(e) => handleFileChange(e, 'videoFile')}
+                    className="hidden"
+                    id="video-upload"
+                  />
+                  <label
+                    htmlFor="video-upload"
+                    className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 cursor-pointer transition"
+                  >
                       Choose Video File
-                    </label>
+                  </label>
                     {formData.videoFile && !recordedVideo && (
                       <div className="mt-4 space-y-2">
                         <p className="text-sm text-indigo-300">
-                          <i className="fa-solid fa-check-circle mr-2"></i>
-                          {formData.videoFile.name}
-                        </p>
+                      <i className="fa-solid fa-check-circle mr-2"></i>
+                      {formData.videoFile.name}
+                    </p>
                         <p className="text-xs text-slate-400">
                           {(formData.videoFile.size / 1024 / 1024).toFixed(2)} MB
                         </p>
@@ -988,7 +1036,7 @@ const Onboarding = () => {
                           />
                         )}
                       </div>
-                    )}
+                  )}
                   </div>
                 </div>
               </div>
@@ -1028,8 +1076,8 @@ const Onboarding = () => {
                     </>
                   ) : (
                     <>
-                      Next
-                      <i className="fa-solid fa-arrow-right ml-2"></i>
+                  Next
+                  <i className="fa-solid fa-arrow-right ml-2"></i>
                     </>
                   )}
                 </button>
@@ -1048,8 +1096,8 @@ const Onboarding = () => {
                     </>
                   ) : (
                     <>
-                      Complete Setup
-                      <i className="fa-solid fa-check ml-2"></i>
+                  Complete Setup
+                  <i className="fa-solid fa-check ml-2"></i>
                     </>
                   )}
                 </button>

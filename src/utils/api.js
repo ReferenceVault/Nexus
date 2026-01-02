@@ -47,7 +47,7 @@ export const api = {
   async logout() {
     try {
       await authenticatedFetch('/auth/logout', {
-        method: 'POST',
+      method: 'POST',
       }, false) // Don't retry on 401 for logout
     } catch (error) {
       console.error('Logout API error:', error)

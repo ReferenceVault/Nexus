@@ -98,7 +98,7 @@ const AnalysisStatus = () => {
       },
       {
         label: 'Skills extracted and categorized',
-        completed: status === 'RESUME_ANALYZING' || status === 'VIDEO_TRANSCRIBING' || status === 'VIDEO_ANALYZING' || status === 'GENERATING_REPORT' || status === 'COMPLETED',
+        completed: status === 'VIDEO_TRANSCRIBING' || status === 'VIDEO_ANALYZING' || status === 'GENERATING_REPORT' || status === 'COMPLETED',
         inProgress: status === 'RESUME_ANALYZING',
       },
       {
@@ -281,7 +281,9 @@ const AnalysisStatus = () => {
                   {resumeSteps.map((step, index) => (
                     <li key={index} className="flex items-center">
                       {step.completed ? (
-                        <i className="fa-solid fa-check-circle text-green-400 mr-3"></i>
+                        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center mr-3">
+                          <i className="fa-solid fa-check text-white text-xs"></i>
+                        </div>
                       ) : step.inProgress ? (
                         <i className="fa-solid fa-spinner fa-spin text-indigo-400 mr-3"></i>
                       ) : (
@@ -326,7 +328,9 @@ const AnalysisStatus = () => {
                   {videoSteps.map((step, index) => (
                     <li key={index} className="flex items-center">
                       {step.completed ? (
-                        <i className="fa-solid fa-check-circle text-green-400 mr-3"></i>
+                        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center mr-3">
+                          <i className="fa-solid fa-check text-white text-xs"></i>
+                        </div>
                       ) : step.inProgress ? (
                         <i className="fa-solid fa-spinner fa-spin text-indigo-400 mr-3"></i>
                       ) : (
