@@ -31,6 +31,8 @@ const UserDashboard = () => {
   const [resumes, setResumes] = useState([])
   const [videos, setVideos] = useState([])
   const [analysisRequests, setAnalysisRequests] = useState([])
+  const [resumeDownloadUrls, setResumeDownloadUrls] = useState({})
+  const [videoDownloadUrls, setVideoDownloadUrls] = useState({})
   
   const userName = user?.firstName && user?.lastName 
     ? `${user.firstName} ${user.lastName}` 
@@ -47,6 +49,18 @@ const UserDashboard = () => {
           try {
             const userResumes = await api.getUserResumes()
             setResumes(userResumes || [])
+            
+            // Fetch presigned URLs for all resumes
+            const resumeUrls = {}
+            for (const resume of userResumes || []) {
+              try {
+                const presignedUrlResponse = await api.getResumePresignedUrl(resume.id)
+                resumeUrls[resume.id] = presignedUrlResponse.presignedUrl
+              } catch (error) {
+                console.error(`Error fetching presigned URL for resume ${resume.id}:`, error)
+              }
+            }
+            setResumeDownloadUrls(resumeUrls)
           } catch (error) {
             console.error('Error fetching resumes:', error)
           }
@@ -54,6 +68,18 @@ const UserDashboard = () => {
           try {
             const userVideos = await api.getUserVideos()
             setVideos(userVideos || [])
+            
+            // Fetch presigned URLs for all videos
+            const videoUrls = {}
+            for (const video of userVideos || []) {
+              try {
+                const presignedUrlResponse = await api.getVideoPresignedUrl(video.id)
+                videoUrls[video.id] = presignedUrlResponse.presignedUrl
+              } catch (error) {
+                console.error(`Error fetching presigned URL for video ${video.id}:`, error)
+              }
+            }
+            setVideoDownloadUrls(videoUrls)
           } catch (error) {
             console.error('Error fetching videos:', error)
           }
@@ -412,12 +438,29 @@ const UserDashboard = () => {
                         <h3 className="font-semibold text-sm text-neutral-900 mb-1">Resume #{index + 1}</h3>
                         <p className="text-xs text-neutral-600 mb-3">Uploaded {new Date(resume.createdAt).toLocaleDateString()}</p>
                         <div className="flex gap-2">
-                          <button className="flex-1 px-3 py-1.5 bg-indigo-50 text-primary rounded-lg text-xs font-semibold hover:bg-indigo-100 transition">
-                            View
-                          </button>
-                          <button className="px-3 py-1.5 border border-neutral-300 text-neutral-700 rounded-lg text-xs font-semibold hover:bg-neutral-50 transition">
-                            <i className="fa-solid fa-download text-xs"></i>
-                          </button>
+                          {resumeDownloadUrls[resume.id] && (
+                            <a
+                              href={resumeDownloadUrls[resume.id]}
+                              download
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 px-3 py-1.5 bg-indigo-50 text-primary rounded-lg text-xs font-semibold hover:bg-indigo-100 transition flex items-center justify-center gap-1.5"
+                            >
+                              <i className="fa-solid fa-eye text-xs"></i>
+                              View
+                            </a>
+                          )}
+                          {resumeDownloadUrls[resume.id] && (
+                            <a
+                              href={resumeDownloadUrls[resume.id]}
+                              download
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 border border-neutral-300 text-neutral-700 rounded-lg text-xs font-semibold hover:bg-neutral-50 transition flex items-center justify-center"
+                            >
+                              <i className="fa-solid fa-download text-xs"></i>
+                            </a>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -467,9 +510,30 @@ const UserDashboard = () => {
                         <div className="p-4">
                           <h3 className="font-semibold text-sm text-neutral-900 mb-1">Video #{index + 1}</h3>
                           <p className="text-xs text-neutral-600 mb-3">Uploaded {new Date(video.createdAt).toLocaleDateString()}</p>
-                          <button className="w-full px-3 py-1.5 bg-indigo-50 text-primary rounded-lg text-xs font-semibold hover:bg-indigo-100 transition">
-                            Watch Video
-                          </button>
+                          <div className="flex gap-2">
+                            {videoDownloadUrls[video.id] && (
+                              <a
+                                href={videoDownloadUrls[video.id]}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 px-3 py-1.5 bg-indigo-50 text-primary rounded-lg text-xs font-semibold hover:bg-indigo-100 transition flex items-center justify-center gap-1.5"
+                              >
+                                <i className="fa-solid fa-play text-xs"></i>
+                                Watch
+                              </a>
+                            )}
+                            {videoDownloadUrls[video.id] && (
+                              <a
+                                href={videoDownloadUrls[video.id]}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 border border-neutral-300 text-neutral-700 rounded-lg text-xs font-semibold hover:bg-neutral-50 transition flex items-center justify-center"
+                              >
+                                <i className="fa-solid fa-download text-xs"></i>
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
