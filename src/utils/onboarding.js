@@ -93,8 +93,90 @@ export const checkOnboardingComplete = async (api) => {
       console.error('Error checking videos:', error)
     }
 
-    // All three steps must be complete
-    return step1Complete && step2Complete && step3Complete
+    // Check if user has analysis results (indicates onboarding was completed at some point)
+    // This is the PRIMARY indicator - if analysis exists, onboarding is complete
+    let hasAnalysis = false
+    let analysisData = null
+    try {
+      console.log('🔍 Checking for analysis...')
+      analysisData = await api.getLatestAnalysis()
+      console.log('🔍 Analysis API response:', analysisData)
+      
+      // Backend returns null (not error) if no analysis found
+      // If analysis exists (not null/undefined), user has completed onboarding
+      // Check for id, status, or any property that indicates it's a valid analysis object
+      hasAnalysis = !!(analysisData && (analysisData.id || analysisData.status || analysisData.userId))
+      
+      if (hasAnalysis) {
+        console.log('✅ Analysis found - onboarding should be complete:', { 
+          id: analysisData.id, 
+          status: analysisData.status,
+          userId: analysisData.userId,
+          hasResumeId: !!analysisData.resumeId,
+          hasVideoId: !!analysisData.videoId,
+          fullResponse: analysisData
+        })
+      } else {
+        console.log('❌ No analysis found - response was:', analysisData)
+      }
+    } catch (error) {
+      // Log all errors to see what's happening
+      const errorMsg = error.message || error.toString()
+      console.error('❌ Error checking analysis:', {
+        message: errorMsg,
+        error: error,
+        stack: error.stack
+      })
+      
+      // Only treat 404 as "no analysis", other errors are real problems
+      if (errorMsg.includes('not found') || errorMsg.includes('404') || errorMsg.includes('No analysis')) {
+        console.log('❌ No analysis found (404 or not found error)')
+      }
+      hasAnalysis = false
+    }
+
+    // Debug logging
+    console.log('🔍 Onboarding check results:', {
+      step1Complete,
+      step2Complete,
+      step3Complete,
+      hasAnalysis,
+      analysisId: analysisData?.id || null,
+      analysisStatus: analysisData?.status || null,
+      hasFirstName: !!userProfile.firstName,
+      hasLastName: !!userProfile.lastName,
+      hasPhone: !!userProfile.phone,
+      hasAddressInfo: !!userProfile.addressInformation,
+      addressFields: userProfile.addressInformation ? {
+        streetAddress: !!userProfile.addressInformation.streetAddress,
+        city: !!userProfile.addressInformation.city,
+        state: !!userProfile.addressInformation.state,
+        zipCode: !!userProfile.addressInformation.zipCode,
+        country: !!userProfile.addressInformation.country,
+      } : null
+    })
+
+    // PRIORITY: If user has analysis results, they've DEFINITELY completed onboarding
+    // This is the strongest indicator - analysis can only exist if onboarding was completed
+    if (hasAnalysis) {
+      console.log('✅ Onboarding COMPLETE - reason: has analysis results')
+      return true
+    }
+
+    // FALLBACK 1: If they have resume + video, they've completed essential steps
+    if (step2Complete && step3Complete) {
+      console.log('✅ Onboarding COMPLETE - reason: has resume and video')
+      return true
+    }
+
+    // FALLBACK 2: All three steps complete
+    if (step1Complete && step2Complete && step3Complete) {
+      console.log('✅ Onboarding COMPLETE - reason: all steps complete')
+      return true
+    }
+
+    console.log('❌ Onboarding INCOMPLETE')
+    return false
   } catch (error) {
     console.error('Error checking onboarding completion:', error)
     return false

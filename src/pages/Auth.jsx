@@ -17,37 +17,8 @@ const Signin = () => {
     const checkAndRedirect = async () => {
       if (isAuthenticated && accessToken && !isTokenExpired(accessToken)) {
         try {
-          const userProfile = await api.getCurrentUser()
-          
-          const hasBasicInfo = 
-            userProfile.firstName && 
-            userProfile.lastName && 
-            userProfile.phone && 
-            userProfile.addressInformation &&
-            userProfile.addressInformation.streetAddress &&
-            userProfile.addressInformation.city &&
-            userProfile.addressInformation.state &&
-            userProfile.addressInformation.zipCode &&
-            userProfile.addressInformation.country
-
-          let hasResume = false
-          let hasVideo = false
-          
-          try {
-            const resumes = await api.getUserResumes()
-            hasResume = resumes && resumes.length > 0
-          } catch (error) {
-            console.error('Error checking resumes:', error)
-          }
-
-          try {
-            const videos = await api.getUserVideos()
-            hasVideo = videos && videos.length > 0
-          } catch (error) {
-            console.error('Error checking videos:', error)
-          }
-
-          const onboardingComplete = hasBasicInfo && hasResume && hasVideo
+          const { checkOnboardingComplete } = await import('../utils/onboarding')
+          const onboardingComplete = await checkOnboardingComplete(api)
 
           if (onboardingComplete) {
             navigate('/user-dashboard', { replace: true })
@@ -89,40 +60,10 @@ const Signin = () => {
       // Login using Redux
       login(response.user, response.tokens)
       
-      // Check onboarding status before redirecting
+      // Check onboarding status before redirecting using centralized function
       try {
-        const userProfile = await api.getCurrentUser()
-        
-        // Check if onboarding is complete
-        const hasBasicInfo = 
-          userProfile.firstName && 
-          userProfile.lastName && 
-          userProfile.phone && 
-          userProfile.addressInformation &&
-          userProfile.addressInformation.streetAddress &&
-          userProfile.addressInformation.city &&
-          userProfile.addressInformation.state &&
-          userProfile.addressInformation.zipCode &&
-          userProfile.addressInformation.country
-
-        let hasResume = false
-        let hasVideo = false
-        
-        try {
-          const resumes = await api.getUserResumes()
-          hasResume = resumes && resumes.length > 0
-        } catch (error) {
-          console.error('Error checking resumes:', error)
-        }
-
-        try {
-          const videos = await api.getUserVideos()
-          hasVideo = videos && videos.length > 0
-        } catch (error) {
-          console.error('Error checking videos:', error)
-        }
-
-        const onboardingComplete = hasBasicInfo && hasResume && hasVideo
+        const { checkOnboardingComplete } = await import('../utils/onboarding')
+        const onboardingComplete = await checkOnboardingComplete(api)
 
         // Redirect based on onboarding status
         if (onboardingComplete) {

@@ -64,12 +64,14 @@ const ProtectedRoute = ({ children }) => {
       }
 
       // Always check onboarding for authenticated users on protected routes
+      console.log('🛡️ ProtectedRoute: Checking onboarding status for', location.pathname)
       setIsCheckingOnboarding(true)
       try {
         const complete = await checkOnboardingComplete(api)
+        console.log('🛡️ ProtectedRoute: Onboarding check result:', complete, 'for', location.pathname)
         setOnboardingComplete(complete)
       } catch (error) {
-        console.error('Error checking onboarding:', error)
+        console.error('🛡️ ProtectedRoute: Error checking onboarding:', error)
         setOnboardingComplete(false) // Default to false on error - force onboarding
       } finally {
         setIsCheckingOnboarding(false)

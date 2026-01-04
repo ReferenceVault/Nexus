@@ -7,6 +7,7 @@ import { api } from '../utils/api'
 import { useAuth } from '../hooks/useAuth'
 import ErrorMessage from '../components/common/ErrorMessage'
 import { isTokenExpired } from '../utils/apiClient'
+import { checkOnboardingComplete } from '../utils/onboarding'
 
 const CombinedAuth = () => {
   const navigate = useNavigate()
@@ -32,48 +33,30 @@ const CombinedAuth = () => {
     }
   }, [location.pathname])
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (but not during sign-in flow)
+  // This useEffect only runs if user is already authenticated when component mounts
+  // It should NOT interfere with the handleSignIn function's navigation
+  const isHandlingLoginRef = useRef(false)
+  
   useEffect(() => {
+    // Skip if we just signed up
     if (justSignedUpRef.current) {
       justSignedUpRef.current = false
       return
     }
     
+    // Skip if we're currently handling login (let handleSignIn manage navigation)
+    if (isHandlingLoginRef.current) {
+      return
+    }
+    
+    // Only redirect if already authenticated (not during active login)
     if (isAuthenticated && accessToken && !isTokenExpired(accessToken)) {
-      // Check onboarding status
+      console.log('🔄 CombinedAuth useEffect: User already authenticated, checking onboarding...')
       const checkOnboarding = async () => {
         try {
-          const userProfile = await api.getCurrentUser()
-          
-          const hasBasicInfo = 
-            userProfile.firstName && 
-            userProfile.lastName && 
-            userProfile.phone && 
-            userProfile.addressInformation &&
-            userProfile.addressInformation.streetAddress &&
-            userProfile.addressInformation.city &&
-            userProfile.addressInformation.state &&
-            userProfile.addressInformation.zipCode &&
-            userProfile.addressInformation.country
-
-          let hasResume = false
-          let hasVideo = false
-          
-          try {
-            const resumes = await api.getUserResumes()
-            hasResume = resumes && resumes.length > 0
-          } catch (error) {
-            console.error('Error checking resumes:', error)
-          }
-
-          try {
-            const videos = await api.getUserVideos()
-            hasVideo = videos && videos.length > 0
-          } catch (error) {
-            console.error('Error checking videos:', error)
-          }
-
-          const onboardingComplete = hasBasicInfo && hasResume && hasVideo
+          const onboardingComplete = await checkOnboardingComplete(api)
+          console.log('🔄 CombinedAuth useEffect - onboardingComplete:', onboardingComplete)
 
           if (onboardingComplete) {
             navigate('/user-dashboard', { replace: true })
@@ -157,52 +140,29 @@ const CombinedAuth = () => {
     e?.preventDefault()
     setLoading(true)
     clearError()
+    isHandlingLoginRef.current = true // Prevent useEffect from interfering
+    
     try {
       const response = await api.login(signInData.email, signInData.password)
       
       login(response.user, response.tokens)
       
-      // Check onboarding status
+      console.log('🔐 Login successful, checking onboarding status...')
+      
+      // Check onboarding status using centralized function
       try {
-        const userProfile = await api.getCurrentUser()
-        
-        const hasBasicInfo = 
-          userProfile.firstName && 
-          userProfile.lastName && 
-          userProfile.phone && 
-          userProfile.addressInformation &&
-          userProfile.addressInformation.streetAddress &&
-          userProfile.addressInformation.city &&
-          userProfile.addressInformation.state &&
-          userProfile.addressInformation.zipCode &&
-          userProfile.addressInformation.country
-
-        let hasResume = false
-        let hasVideo = false
-        
-        try {
-          const resumes = await api.getUserResumes()
-          hasResume = resumes && resumes.length > 0
-        } catch (error) {
-          console.error('Error checking resumes:', error)
-        }
-
-        try {
-          const videos = await api.getUserVideos()
-          hasVideo = videos && videos.length > 0
-        } catch (error) {
-          console.error('Error checking videos:', error)
-        }
-
-        const onboardingComplete = hasBasicInfo && hasResume && hasVideo
+        const onboardingComplete = await checkOnboardingComplete(api)
+        console.log('🔐 handleSignIn - onboardingComplete:', onboardingComplete)
 
         if (onboardingComplete) {
+          console.log('✅ Redirecting to user-dashboard')
           navigate('/user-dashboard', { replace: true })
         } else {
+          console.log('❌ Redirecting to onboarding')
           navigate('/onboarding', { replace: true })
         }
       } catch (error) {
-        console.error('Error checking onboarding status:', error)
+        console.error('❌ Error checking onboarding status:', error)
         navigate('/onboarding', { replace: true })
       }
     } catch (error) {
@@ -211,6 +171,10 @@ const CombinedAuth = () => {
       setErrors({ submit: errorMessage })
     } finally {
       setLoading(false)
+      // Reset after a delay to allow navigation to complete
+      setTimeout(() => {
+        isHandlingLoginRef.current = false
+      }, 1000)
     }
   }
 

@@ -20,6 +20,7 @@ const PublicRoute = ({ children }) => {
   const isAuthenticatedWithValidToken = isAuthenticated && accessToken && !isTokenExpired(accessToken)
 
   // Check onboarding completion for authenticated users
+  // BUT skip this check for signin/signup pages - let their handlers manage it
   useEffect(() => {
     const checkOnboarding = async () => {
       if (!isAuthenticatedWithValidToken) {
@@ -27,12 +28,23 @@ const PublicRoute = ({ children }) => {
         return
       }
 
+      // Skip onboarding check for signin/signup - let their handlers manage navigation
+      const isSignupPage = location.pathname === '/signup'
+      const isSigninPage = location.pathname === '/signin'
+      if (isSignupPage || isSigninPage) {
+        console.log('🚦 PublicRoute: Skipping onboarding check for signin/signup page')
+        setOnboardingComplete(null) // Don't redirect, let the page handle it
+        return
+      }
+
+      console.log('🚦 PublicRoute: Checking onboarding status...')
       setIsCheckingOnboarding(true)
       try {
         const complete = await checkOnboardingComplete(api)
+        console.log('🚦 PublicRoute: Onboarding check result:', complete)
         setOnboardingComplete(complete)
       } catch (error) {
-        console.error('Error checking onboarding:', error)
+        console.error('🚦 PublicRoute: Error checking onboarding:', error)
         setOnboardingComplete(false)
       } finally {
         setIsCheckingOnboarding(false)
@@ -42,28 +54,32 @@ const PublicRoute = ({ children }) => {
     if (isAuthenticatedWithValidToken) {
       checkOnboarding()
     }
-  }, [isAuthenticatedWithValidToken])
+  }, [isAuthenticatedWithValidToken, location.pathname])
 
   // If authenticated, redirect away from auth pages
   if (isAuthenticatedWithValidToken && !isCheckingOnboarding && onboardingComplete !== null) {
-    // Special handling for signup page: allow navigation to happen
-    // The signup handler will redirect to onboarding, so we don't intercept here
-    // This prevents race conditions where PublicRoute redirects before signup handler can navigate
+    // Special handling for signup and signin pages: allow their handlers to manage navigation
+    // This prevents race conditions where PublicRoute redirects before handlers can navigate
     const isSignupPage = location.pathname === '/signup'
+    const isSigninPage = location.pathname === '/signin'
     
-    if (isSignupPage) {
-      // Allow signup page to handle its own redirect to onboarding
-      // The signup component's useEffect is controlled by justSignedUpRef flag
+    if (isSignupPage || isSigninPage) {
+      // Allow signup/signin pages to handle their own redirect
+      // The login/signup handlers will check onboarding and navigate appropriately
+      console.log('🚦 PublicRoute: Allowing signin/signup page to handle navigation')
       return children
     }
 
+    // For other auth pages (forgot-password, etc.), redirect based on onboarding status
     // If onboarding is not complete, redirect to onboarding
     if (!onboardingComplete) {
+      console.log('🚦 PublicRoute: Onboarding incomplete, redirecting to /onboarding')
       return <Navigate to="/onboarding" replace />
     }
 
-    // For other auth pages (login, forgot-password, etc.), redirect based on onboarding status
+    // Onboarding complete, redirect to dashboard
     const from = location.state?.from?.pathname || '/user-dashboard'
+    console.log('🚦 PublicRoute: Onboarding complete, redirecting to', from)
     return <Navigate to={from} replace />
   }
 
