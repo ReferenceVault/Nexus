@@ -1,4 +1,5 @@
 import { store } from '../store'
+import { logout } from '../store/slices/authSlice'
 import { authenticatedFetch, unauthenticatedFetch, handleApiError } from './apiClient'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -51,6 +52,9 @@ export const api = {
       }, false) // Don't retry on 401 for logout
     } catch (error) {
       console.error('Logout API error:', error)
+    } finally {
+      // Always clear tokens and user data, even if API call fails
+      store.dispatch(logout())
     }
     return { success: true }
   },
