@@ -30,6 +30,9 @@ const Onboarding = () => {
   const [uploadedResumeInfo, setUploadedResumeInfo] = useState(null) // Store resume file info
   const [uploadedVideoId, setUploadedVideoId] = useState(null)
   const [uploadedVideoInfo, setUploadedVideoInfo] = useState(null) // Store video file info
+  const [storedResumes, setStoredResumes] = useState(null) // Cache resumes data
+  const [storedVideos, setStoredVideos] = useState(null) // Cache videos data
+  const [storedUserProfile, setStoredUserProfile] = useState(null) // Cache user profile
   const [formData, setFormData] = useState({
     // Step 1: Basic Information
     firstName: '',
@@ -85,8 +88,12 @@ const Onboarding = () => {
       }
 
       try {
-        // Get user profile to check step 1 completion
-        const userProfile = await api.getCurrentUser()
+        // Get user profile to check step 1 completion (only if not cached)
+        let userProfile = storedUserProfile
+        if (!userProfile) {
+          userProfile = await api.getCurrentUser()
+          setStoredUserProfile(userProfile)
+        }
         
         // Check if step 1 is complete (has firstName, lastName, phone, addressInformation)
         const step1Complete = 
@@ -95,68 +102,78 @@ const Onboarding = () => {
           userProfile.phone && 
           userProfile.addressInformation
 
-        // Check if step 2 is complete (has uploaded resume)
+        // Check if step 2 is complete (has uploaded resume) - reuse cached data if available
         let step2Complete = false
-        try {
-          const resumes = await api.getUserResumes()
-          step2Complete = resumes && resumes.length > 0
-          if (resumes && resumes.length > 0) {
-            const resume = resumes[0]
-            setUploadedResumeId(resume.id)
-            // Fetch presigned URL for the resume
-            try {
-              const presignedUrlResponse = await api.getResumePresignedUrl(resume.id)
-              // Store resume info to display when user returns to step 2
-              setUploadedResumeInfo({
-                fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
-                fileType: resume.fileType || 'PDF',
-                uploadedAt: resume.createdAt,
-                presignedUrl: presignedUrlResponse.presignedUrl
-              })
-            } catch (presignedError) {
-              console.error('Error fetching presigned URL for resume:', presignedError)
-              // Store without presigned URL if fetch fails
-              setUploadedResumeInfo({
-                fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
-                fileType: resume.fileType || 'PDF',
-                uploadedAt: resume.createdAt
-              })
-            }
+        let resumes = storedResumes
+        if (!resumes) {
+          try {
+            resumes = await api.getUserResumes()
+            setStoredResumes(resumes)
+          } catch (error) {
+            console.error('Error checking resumes:', error)
           }
-        } catch (error) {
-          console.error('Error checking resumes:', error)
+        }
+        
+        if (resumes && resumes.length > 0) {
+          step2Complete = true
+          const resume = resumes[0]
+          setUploadedResumeId(resume.id)
+          // Fetch presigned URL for the resume
+          try {
+            const presignedUrlResponse = await api.getResumePresignedUrl(resume.id)
+            // Store resume info to display when user returns to step 2
+            setUploadedResumeInfo({
+              fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
+              fileType: resume.fileType || 'PDF',
+              uploadedAt: resume.createdAt,
+              presignedUrl: presignedUrlResponse.presignedUrl
+            })
+          } catch (presignedError) {
+            console.error('Error fetching presigned URL for resume:', presignedError)
+            // Store without presigned URL if fetch fails
+            setUploadedResumeInfo({
+              fileName: resume.fileUrl?.split('/').pop() || 'resume.pdf',
+              fileType: resume.fileType || 'PDF',
+              uploadedAt: resume.createdAt
+            })
+          }
         }
 
-        // Check if step 3 is complete (has uploaded video)
+        // Check if step 3 is complete (has uploaded video) - reuse cached data if available
         let step3Complete = false
-        try {
-          const videos = await api.getUserVideos()
-          step3Complete = videos && videos.length > 0
-          if (videos && videos.length > 0) {
-            const video = videos[0]
-            setUploadedVideoId(video.id)
-            // Fetch presigned URL for the video
-            try {
-              const presignedUrlResponse = await api.getVideoPresignedUrl(video.id)
-              // Store video info to display when user returns to step 3
-              setUploadedVideoInfo({
-                fileName: video.fileUrl?.split('/').pop() || 'video.mp4',
-                fileType: video.fileType || 'MP4',
-                uploadedAt: video.createdAt,
-                presignedUrl: presignedUrlResponse.presignedUrl
-              })
-            } catch (presignedError) {
-              console.error('Error fetching presigned URL for video:', presignedError)
-              // Store without presigned URL if fetch fails
-              setUploadedVideoInfo({
-                fileName: video.fileUrl?.split('/').pop() || 'video.mp4',
-                fileType: video.fileType || 'MP4',
-                uploadedAt: video.createdAt
-              })
-            }
+        let videos = storedVideos
+        if (!videos) {
+          try {
+            videos = await api.getUserVideos()
+            setStoredVideos(videos)
+          } catch (error) {
+            console.error('Error checking videos:', error)
           }
-        } catch (error) {
-          console.error('Error checking videos:', error)
+        }
+        
+        if (videos && videos.length > 0) {
+          step3Complete = true
+          const video = videos[0]
+          setUploadedVideoId(video.id)
+          // Fetch presigned URL for the video
+          try {
+            const presignedUrlResponse = await api.getVideoPresignedUrl(video.id)
+            // Store video info to display when user returns to step 3
+            setUploadedVideoInfo({
+              fileName: video.fileUrl?.split('/').pop() || 'video.mp4',
+              fileType: video.fileType || 'MP4',
+              uploadedAt: video.createdAt,
+              presignedUrl: presignedUrlResponse.presignedUrl
+            })
+          } catch (presignedError) {
+            console.error('Error fetching presigned URL for video:', presignedError)
+            // Store without presigned URL if fetch fails
+            setUploadedVideoInfo({
+              fileName: video.fileUrl?.split('/').pop() || 'video.mp4',
+              fileType: video.fileType || 'MP4',
+              uploadedAt: video.createdAt
+            })
+          }
         }
 
         // Determine current step based on completion
@@ -222,12 +239,18 @@ const Onboarding = () => {
     checkOnboardingProgress()
   }, [isAuthenticated, accessToken, signupData, user])
 
-  // Check for uploaded resume when navigating to step 2
+  // Check for uploaded resume when navigating to step 2 (reuse cached data if available)
   useEffect(() => {
     const checkUploadedResume = async () => {
       if (currentStep === 2 && isAuthenticated && accessToken && !uploadedResumeInfo) {
         try {
-          const resumes = await api.getUserResumes()
+          // Reuse cached resumes if available, otherwise fetch
+          let resumes = storedResumes
+          if (!resumes) {
+            resumes = await api.getUserResumes()
+            setStoredResumes(resumes)
+          }
+          
           if (resumes && resumes.length > 0) {
             const resume = resumes[0]
             setUploadedResumeId(resume.id)
@@ -256,7 +279,7 @@ const Onboarding = () => {
     }
 
     checkUploadedResume()
-  }, [currentStep, isAuthenticated, accessToken, uploadedResumeInfo])
+  }, [currentStep, isAuthenticated, accessToken, uploadedResumeInfo, storedResumes])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -437,6 +460,8 @@ const Onboarding = () => {
 
       const result = await api.uploadVideo(videoFile)
       setUploadedVideoId(result.id)
+      // Clear cached videos to force refresh on next check
+      setStoredVideos(null)
       return true
     } catch (error) {
       let errorMessage = error.message || 'Failed to upload video'
@@ -604,6 +629,8 @@ const Onboarding = () => {
 
       const result = await api.uploadResume(formData.resumeFile)
       setUploadedResumeId(result.id)
+      // Clear cached resumes to force refresh on next check
+      setStoredResumes(null)
       return true
     } catch (error) {
       const errorMessage = error.message || 'Failed to upload resume'
@@ -682,6 +709,8 @@ const Onboarding = () => {
         const videoResult = await api.uploadVideo(videoFile)
         videoId = videoResult.id
         setUploadedVideoId(videoId)
+        // Clear cached videos to force refresh on next check
+        setStoredVideos(null)
         
         // Update video info
         setUploadedVideoInfo({
@@ -707,33 +736,43 @@ const Onboarding = () => {
       }
     }
 
-    // If video already exists, fetch it
+    // If video already exists, reuse cached data if available
     if (!videoId) {
-      try {
-        const videos = await api.getUserVideos()
-        if (videos && videos.length > 0) {
-          videoId = videos[0].id
-          setUploadedVideoId(videoId)
+      let videos = storedVideos
+      if (!videos) {
+        try {
+          videos = await api.getUserVideos()
+          setStoredVideos(videos)
+        } catch (error) {
+          console.error('Error fetching videos:', error)
         }
-      } catch (error) {
-        console.error('Error fetching videos:', error)
+      }
+      
+      if (videos && videos.length > 0) {
+        videoId = videos[0].id
+        setUploadedVideoId(videoId)
       }
     }
     
     // Save video status
     setOnboardingStatus(OnboardingStatus.VIDEO_UPLOADED)
 
-    // Get resume ID if not already set
+    // Get resume ID if not already set (reuse cached data if available)
     let resumeId = uploadedResumeId
     if (!resumeId) {
-      try {
-        const resumes = await api.getUserResumes()
-        if (resumes && resumes.length > 0) {
-          resumeId = resumes[0].id
-          setUploadedResumeId(resumeId)
+      let resumes = storedResumes
+      if (!resumes) {
+        try {
+          resumes = await api.getUserResumes()
+          setStoredResumes(resumes)
+        } catch (error) {
+          console.error('Error fetching resumes:', error)
         }
-      } catch (error) {
-        console.error('Error fetching resumes:', error)
+      }
+      
+      if (resumes && resumes.length > 0) {
+        resumeId = resumes[0].id
+        setUploadedResumeId(resumeId)
       }
     }
 

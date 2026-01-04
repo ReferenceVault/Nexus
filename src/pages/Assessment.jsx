@@ -41,34 +41,28 @@ const Assessment = () => {
         setError(null)
         setCheckingResume(true)
 
-        // Fetch resumes and videos
+        // Fetch resumes and videos (single call for each)
+        let userResumes = []
+        let userVideos = []
+        
         try {
-          const userResumes = await api.getUserResumes()
+          userResumes = await api.getUserResumes()
           setResumes(userResumes || [])
         } catch (error) {
           console.error('Error fetching resumes:', error)
         }
 
         try {
-          const userVideos = await api.getUserVideos()
+          userVideos = await api.getUserVideos()
           setVideos(userVideos || [])
         } catch (error) {
           console.error('Error fetching videos:', error)
         }
 
-        // First, check if user has uploaded a resume
-        let userHasResume = false
-        try {
-          const resumes = await api.getUserResumes()
-          userHasResume = resumes && resumes.length > 0
-          setHasResume(userHasResume)
-        } catch (resumeErr) {
-          console.error('Error checking resumes:', resumeErr)
-          setHasResume(false)
-          userHasResume = false
-        } finally {
-          setCheckingResume(false)
-        }
+        // Check if user has uploaded a resume (reuse data from above)
+        const userHasResume = userResumes && userResumes.length > 0
+        setHasResume(userHasResume)
+        setCheckingResume(false)
 
         // If no resume, don't try to fetch analysis
         if (!userHasResume) {
