@@ -153,6 +153,14 @@ export const api = {
     return handleApiError(response)
   },
 
+  async optimizeResume(resumeId, jobDescription, targetRole) {
+    const response = await authenticatedFetch('/analysis/resume-optimizer', {
+      method: 'POST',
+      body: JSON.stringify({ resumeId, jobDescription, targetRole }),
+    })
+    return handleApiError(response)
+  },
+
   // Generic authenticated request helper (now uses authenticatedFetch)
   async authenticatedRequest(url, options = {}) {
     const response = await authenticatedFetch(url, options)
