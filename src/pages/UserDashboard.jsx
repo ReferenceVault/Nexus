@@ -34,6 +34,12 @@ const UserDashboard = () => {
   const [resumeDownloadUrls, setResumeDownloadUrls] = useState({})
   const [videoDownloadUrls, setVideoDownloadUrls] = useState({})
   const [profileLoaded, setProfileLoaded] = useState(false)
+  const [optimizerResumeId, setOptimizerResumeId] = useState('')
+  const [jobDescription, setJobDescription] = useState('')
+  const [targetRole, setTargetRole] = useState('')
+  const [optimizerResult, setOptimizerResult] = useState(null)
+  const [isOptimizing, setIsOptimizing] = useState(false)
+  const [optimizerError, setOptimizerError] = useState(null)
   
   const userName = user?.firstName && user?.lastName 
     ? `${user.firstName} ${user.lastName}` 
@@ -91,6 +97,12 @@ const UserDashboard = () => {
     }
     fetchUserData()
   }, [isAuthenticated, accessToken])
+
+  useEffect(() => {
+    if (resumes.length > 0 && !optimizerResumeId) {
+      setOptimizerResumeId(resumes[0].id)
+    }
+  }, [resumes, optimizerResumeId])
 
   // Fetch profile when profile view is active
   useEffect(() => {
@@ -173,6 +185,34 @@ const UserDashboard = () => {
     }
   }
 
+  const handleOptimizeResume = async () => {
+    setOptimizerError(null)
+
+    if (!optimizerResumeId) {
+      setOptimizerError('Please select a resume to optimize.')
+      return
+    }
+    if (!jobDescription.trim()) {
+      setOptimizerError('Please paste a job description.')
+      return
+    }
+
+    try {
+      setIsOptimizing(true)
+      setOptimizerResult(null)
+      const result = await api.optimizeResume(
+        optimizerResumeId,
+        jobDescription.trim(),
+        targetRole.trim() || undefined
+      )
+      setOptimizerResult(result)
+    } catch (error) {
+      setOptimizerError(error.message || 'Failed to optimize resume.')
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50/30 via-white to-indigo-50/20 flex flex-col">
       <SocialSidebar position="right" />
@@ -185,10 +225,10 @@ const UserDashboard = () => {
         onLogout={handleLogout}
         breadcrumbs={[
           { label: 'Home', href: '/' },
-          { label: activeView === 'overview' ? 'Dashboard' : activeView === 'resumes' ? 'My Resumes' : activeView === 'videos' ? 'Video Introductions' : activeView === 'profile' ? 'Profile' : 'Dashboard' }
+          { label: activeView === 'overview' ? 'Dashboard' : activeView === 'resumes' ? 'My Resumes' : activeView === 'videos' ? 'Video Introductions' : activeView === 'resume-optimizer' ? 'Resume Optimizer' : activeView === 'profile' ? 'Profile' : 'Dashboard' }
         ]}
-        title={activeView === 'overview' ? '' : activeView === 'resumes' ? '' : activeView === 'videos' ? '' : activeView === 'profile' ? 'Profile' : ''}
-        subtitle={activeView === 'resumes' ? '' : activeView === 'videos' ? '' : activeView === 'profile' ? 'Update your profile information' : ''}
+        title={activeView === 'overview' ? '' : activeView === 'resumes' ? '' : activeView === 'videos' ? '' : activeView === 'resume-optimizer' ? '' : activeView === 'profile' ? 'Profile' : ''}
+        subtitle={activeView === 'resume-optimizer' ? '' : activeView === 'resumes' ? '' : activeView === 'videos' ? '' : activeView === 'profile' ? 'Update your profile information' : ''}
       />
 
       <div className="flex flex-1">
@@ -210,6 +250,12 @@ const UserDashboard = () => {
               icon: 'fa-solid fa-file-pdf',
               badge: resumes.length > 0 ? resumes.length : undefined,
               onClick: () => setActiveView('resumes')
+            },
+            {
+              id: 'resume-optimizer',
+              label: 'Resume Optimizer',
+              icon: 'fa-solid fa-wand-magic-sparkles',
+              onClick: () => setActiveView('resume-optimizer')
             },
             {
               id: 'videos',
@@ -563,6 +609,254 @@ const UserDashboard = () => {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          ) : activeView === 'resume-optimizer' ? (
+            <div className="px-8 py-4">
+              <div className="max-w-7xl mx-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold text-neutral-900 mb-0.5">Resume Optimizer</h2>
+                    <p className="text-xs text-neutral-600">Match your resume to a job description</p>
+                  </div>
+                  <button
+                    onClick={() => navigate('/upload-resume')}
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center gap-2"
+                  >
+                    <i className="fa-solid fa-plus text-xs"></i>
+                    Upload Resume
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-indigo-200/50 shadow-md p-4">
+                    <h3 className="text-sm font-semibold text-neutral-900 mb-3">Inputs</h3>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-1">Select Resume</label>
+                        <select
+                          value={optimizerResumeId}
+                          onChange={(e) => setOptimizerResumeId(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                          disabled={resumes.length === 0}
+                        >
+                          <option value="" disabled>Select a resume</option>
+                          {resumes.map((resume, index) => (
+                            <option key={resume.id} value={resume.id}>
+                              Resume #{index + 1} • {new Date(resume.createdAt).toLocaleDateString()}
+                            </option>
+                          ))}
+                        </select>
+                        {resumes.length === 0 && (
+                          <p className="text-xs text-neutral-500 mt-1">Upload a resume to enable optimization.</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-1">Target Role (optional)</label>
+                        <input
+                          value={targetRole}
+                          onChange={(e) => setTargetRole(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="e.g., Senior Backend Engineer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-1">Job Description</label>
+                        <textarea
+                          value={jobDescription}
+                          onChange={(e) => setJobDescription(e.target.value)}
+                          rows={10}
+                          className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="Paste the job description here..."
+                        />
+                      </div>
+
+                      {optimizerError && (
+                        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                          {optimizerError}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleOptimizeResume}
+                        disabled={isOptimizing || resumes.length === 0}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isOptimizing ? (
+                          <>
+                            <i className="fa-solid fa-spinner fa-spin text-xs"></i>
+                            Optimizing...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fa-solid fa-wand-magic-sparkles text-xs"></i>
+                            Optimize Resume
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-indigo-200/50 shadow-md p-4 min-h-[70vh] max-h-[70vh] overflow-y-scroll">
+                    <h3 className="text-sm font-semibold text-neutral-900 mb-3">Optimization Results</h3>
+
+                    {isOptimizing ? (
+                      <div className="flex items-center justify-center py-10 text-sm text-neutral-600">
+                        <i className="fa-solid fa-spinner fa-spin mr-2"></i>
+                        Analyzing your resume...
+                      </div>
+                    ) : optimizerResult ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-neutral-600">Match Score</span>
+                          <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                            {optimizerResult.matchScore ?? 'N/A'}%
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-semibold text-neutral-700 mb-2">Gap Summary</h4>
+                          <div className="text-xs text-neutral-600 space-y-1">
+                            <div><span className="font-semibold">Missing skills:</span> {(optimizerResult.gapSummary?.missingSkills || []).join(', ') || 'None'}</div>
+                            <div><span className="font-semibold">Weak skills:</span> {(optimizerResult.gapSummary?.weakSkills || []).join(', ') || 'None'}</div>
+                            <div><span className="font-semibold">Overused keywords:</span> {(optimizerResult.gapSummary?.overusedKeywords || []).join(', ') || 'None'}</div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-semibold text-neutral-700 mb-2">Suggested Keywords</h4>
+                          {Array.isArray(optimizerResult.suggestedKeywords) && optimizerResult.suggestedKeywords.length > 0 ? (
+                            <div className="space-y-2">
+                              {optimizerResult.suggestedKeywords.map((item, index) => (
+                                <div key={`${item.keyword}-${index}`} className="text-xs text-neutral-700 border border-neutral-200 rounded-lg px-2 py-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold">{item.keyword}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600">{item.importance}</span>
+                                  </div>
+                                  <div className="text-[11px] text-neutral-500 mt-1">{item.evidence}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-neutral-500">No keyword suggestions.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-semibold text-neutral-700 mb-2">Sections To Update</h4>
+                          {Array.isArray(optimizerResult.sectionsToUpdate) && optimizerResult.sectionsToUpdate.length > 0 ? (
+                            <div className="space-y-2">
+                              {optimizerResult.sectionsToUpdate.map((item, index) => (
+                                <div key={`${item.section}-${index}`} className="text-xs text-neutral-700 border border-neutral-200 rounded-lg px-2 py-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold">{item.section}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600">{item.priority}</span>
+                                  </div>
+                                  <div className="text-[11px] text-neutral-500 mt-1">{item.reason}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-neutral-500">No section updates suggested.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-semibold text-neutral-700 mb-2">Bullet Rewrites</h4>
+                          {Array.isArray(optimizerResult.bulletRewrites) && optimizerResult.bulletRewrites.length > 0 ? (
+                            <div className="space-y-2">
+                              {optimizerResult.bulletRewrites.map((item, index) => (
+                                <div key={`${item.section}-${index}`} className="text-xs text-neutral-700 border border-neutral-200 rounded-lg px-2 py-1.5">
+                                  <div className="text-[11px] text-neutral-500 mb-1">{item.section}</div>
+                                  <div className="text-[11px] text-neutral-500 line-through">{item.original}</div>
+                                  <div className="text-xs font-semibold text-neutral-800">{item.suggested}</div>
+                                  <div className="text-[11px] text-neutral-500 mt-1">{item.reason}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-neutral-500">No bullet rewrites suggested.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-xs font-semibold text-neutral-700 mb-2">Optimization Checklist</h4>
+                          {Array.isArray(optimizerResult.optimizationChecklist) && optimizerResult.optimizationChecklist.length > 0 ? (
+                            <div className="space-y-1">
+                              {optimizerResult.optimizationChecklist.map((item, index) => (
+                                <div key={`${item.task}-${index}`} className="text-xs text-neutral-700 flex items-center justify-between border border-neutral-200 rounded-lg px-2 py-1.5">
+                                  <span>{item.task}</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600">{item.priority}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-neutral-500">No checklist items available.</p>
+                          )}
+                        </div>
+
+                        {optimizerResult.notes && (
+                          <div className="text-xs text-neutral-600 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2">
+                            {optimizerResult.notes}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-neutral-500">Run an optimization to see results here.</p>
+                    )}
+                  </div>
+
+                  <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-indigo-200/50 shadow-md p-4 space-y-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-neutral-900 mb-3">Sample Resume</h3>
+                      {optimizerResult?.sampleResume ? (
+                        <div className="space-y-3">
+                          <textarea
+                            readOnly
+                            value={optimizerResult.sampleResume}
+                            rows={14}
+                            className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg bg-neutral-50 font-mono whitespace-pre-wrap"
+                          />
+                          <button
+                            onClick={() => navigator.clipboard.writeText(optimizerResult.sampleResume)}
+                            className="w-full px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg text-xs font-semibold hover:bg-neutral-50 transition-all flex items-center justify-center gap-2"
+                          >
+                            <i className="fa-solid fa-copy text-xs"></i>
+                            Copy Sample Resume
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-neutral-500">A sample resume will appear after optimization.</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-neutral-900 mb-3">Sample Cover Letter</h3>
+                      {optimizerResult?.sampleCoverLetter ? (
+                        <div className="space-y-3">
+                          <textarea
+                            readOnly
+                            value={optimizerResult.sampleCoverLetter}
+                            rows={12}
+                            className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg bg-neutral-50 whitespace-pre-wrap"
+                          />
+                          <button
+                            onClick={() => navigator.clipboard.writeText(optimizerResult.sampleCoverLetter)}
+                            className="w-full px-4 py-2 border border-neutral-300 text-neutral-700 rounded-lg text-xs font-semibold hover:bg-neutral-50 transition-all flex items-center justify-center gap-2"
+                          >
+                            <i className="fa-solid fa-copy text-xs"></i>
+                            Copy Sample Cover Letter
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-neutral-500">A sample cover letter will appear after optimization.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
