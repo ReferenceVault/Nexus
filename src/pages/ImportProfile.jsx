@@ -5,7 +5,7 @@ const ImportProfile = () => {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('resume')
   const [uploadedFiles, setUploadedFiles] = useState([])
-  const [progress, setProgress] = useState(15)
+  const [_progress, setProgress] = useState(15)
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)

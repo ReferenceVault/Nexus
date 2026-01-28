@@ -89,30 +89,6 @@ const AnalysisStatus = () => {
     }
   }, [id, isAuthenticated, accessToken, navigate])
 
-
-  const getStatusMessage = (status) => {
-    switch (status) {
-      case 'PENDING':
-        return 'Initializing analysis...'
-      case 'RESUME_PARSING':
-        return 'Parsing resume document...'
-      case 'RESUME_ANALYZING':
-        return 'Analyzing resume content...'
-      case 'VIDEO_TRANSCRIBING':
-        return 'Transcribing video...'
-      case 'VIDEO_ANALYZING':
-        return 'Analyzing video presentation...'
-      case 'GENERATING_REPORT':
-        return 'Generating final report...'
-      case 'COMPLETED':
-        return 'Analysis complete!'
-      case 'FAILED':
-        return 'Analysis failed'
-      default:
-        return 'Processing...'
-    }
-  }
-
   const getResumeSteps = () => {
     if (!analysis) return []
     

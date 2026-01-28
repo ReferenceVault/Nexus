@@ -13,7 +13,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner'
 const Onboarding = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { signupData, user, updateUser, accessToken, isAuthenticated } = useAuth()
+  const { signupData, user, accessToken, isAuthenticated } = useAuth()
   const handleLogout = useLogout('/signin')
   const [currentStep, setCurrentStep] = useState(1)
   const [errors, setErrors] = useState({})

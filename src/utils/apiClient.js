@@ -143,13 +143,7 @@ export const authenticatedFetch = async (url, options = {}, retryOn401 = true) =
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`
   
   // Get valid access token (will refresh if needed)
-  let accessToken
-  try {
-    accessToken = await getValidAccessToken()
-  } catch (error) {
-    // Token refresh failed, user is logged out
-    throw error
-  }
+  const accessToken = await getValidAccessToken()
 
   // Check if body is FormData (don't set Content-Type for FormData, browser will set it with boundary)
   const isFormData = options.body instanceof FormData

@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useAuth } from '../hooks/useAuth'
 
 const SocialSidebar = ({ position = 'left' }) => {
-  const { isAuthenticated } = useAuth()
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {

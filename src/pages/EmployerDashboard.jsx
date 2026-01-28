@@ -215,7 +215,7 @@ const EmployerDashboard = () => {
     return text
   }
 
-  const openMessageComposer = async (match, type) => {
+  const _openMessageComposer = async (match, type) => {
     setDetailMatch(match)
     setMessageType(type)
     if (!messageTemplates.length) {

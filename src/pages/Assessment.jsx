@@ -14,7 +14,7 @@ import { getCandidateMenuItems, getCandidateQuickActions } from '../utils/candid
 const Assessment = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { accessToken, isAuthenticated, user, updateUser } = useAuth()
+  const { accessToken, isAuthenticated, user } = useAuth()
   const handleLogout = useLogout('/signin')
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -334,7 +334,7 @@ const Assessment = () => {
     item.type === 'Improvement' || item.type === 'improvement'
   ).slice(0, 2)
 
-  const getRecommendationColor = (priority, index) => {
+  const getRecommendationColor = (priority) => {
     if (priority === 'high') return 'yellow'
     if (priority === 'medium') return 'blue'
     return 'emerald'

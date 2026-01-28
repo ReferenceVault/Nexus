@@ -17,7 +17,6 @@ const Header = ({
   const { isAuthenticated, user } = useAuth()
   const defaultLogout = useLogout('/signin')
   const [onboardingComplete, setOnboardingComplete] = useState(null)
-  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false)
   
   const isEmployer = Array.isArray(user?.roles) && user.roles.includes('employer')
 
@@ -29,15 +28,12 @@ const Header = ({
         return
       }
 
-      setIsCheckingOnboarding(true)
       try {
         const complete = await checkOnboardingComplete(api)
         setOnboardingComplete(complete)
       } catch (error) {
         console.error('Error checking onboarding:', error)
         setOnboardingComplete(false)
-      } finally {
-        setIsCheckingOnboarding(false)
       }
     }
 
@@ -47,17 +43,6 @@ const Header = ({
   // Determine if we should show user header
   // 1. If userMode is explicitly set, use it
   // 2. Otherwise, show user header if user is authenticated (regardless of route)
-  const isProtectedRoute = location.pathname.startsWith('/onboarding') || 
-                          location.pathname.startsWith('/user-dashboard') ||
-                          location.pathname.startsWith('/assessments') ||
-                          location.pathname.startsWith('/analysis') ||
-                          location.pathname.startsWith('/create-profile') ||
-                          location.pathname.startsWith('/import-profile') ||
-                          location.pathname.startsWith('/job-matches') ||
-                          location.pathname.startsWith('/job-details') ||
-                          location.pathname.startsWith('/employer-dashboard') ||
-                          location.pathname.startsWith('/employer-onboarding')
-  
   const showUserHeader = userMode !== undefined 
     ? userMode 
     : isAuthenticated
@@ -65,11 +50,6 @@ const Header = ({
   // Don't highlight any menu on onboarding routes
   const isOnboardingRoute = location.pathname.startsWith('/onboarding')
   const effectiveActiveNav = isOnboardingRoute ? null : (activeNav || null)
-  
-  // Disable navigation if onboarding is not complete
-  // Only allow navigation if onboarding is explicitly complete (true)
-  // Block if null (checking), false (incomplete), or undefined
-  const canNavigate = isEmployer ? true : onboardingComplete === true
   
   // Get user info from auth state
   const displayName = userName || user?.firstName || user?.name || 'User'
