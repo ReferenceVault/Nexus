@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { isTokenExpired, getValidAccessToken } from '../../utils/apiClient'
 import { checkOnboardingComplete } from '../../utils/onboarding'
 import { api } from '../../utils/api'
+import RoleAccessDenied from './RoleAccessDenied'
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading, accessToken, refreshToken, user } = useAuth()
@@ -14,9 +15,15 @@ const ProtectedRoute = ({ children }) => {
   const [employerProfileComplete, setEmployerProfileComplete] = useState(null)
   const location = useLocation()
   
-  const isEmployer = Array.isArray(user?.roles) && user.roles.includes('employer')
+  const userRoles = user?.roles || []
+  const isEmployer = Array.isArray(userRoles) && userRoles.includes('employer')
+  const isUser = Array.isArray(userRoles) && userRoles.includes('user')
   const isEmployerRoute = location.pathname.startsWith('/employer')
   const isEmployerOnboardingRoute = location.pathname.startsWith('/employer-onboarding')
+  
+  // Check role access for employer routes
+  const requiresEmployerRole = isEmployerRoute && !isEmployerOnboardingRoute
+  const hasRequiredRole = requiresEmployerRole ? isEmployer : true
 
   // Routes that don't require onboarding completion
   const onboardingRoutes = ['/onboarding', '/assessments', '/analysis']
@@ -196,6 +203,11 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (isEmployerRoute) {
+    // Check if user has required role
+    if (requiresEmployerRole && !hasRequiredRole) {
+      return <RoleAccessDenied requiredRole="employer" currentPath={location.pathname} />
+    }
+
     if (isEmployerOnboardingRoute) {
       return children
     }
@@ -205,6 +217,13 @@ const ProtectedRoute = ({ children }) => {
     }
 
     return children
+  }
+  
+  // Check role access for user routes (non-employer routes that require user role)
+  const userOnlyRoutes = ['/upload-resume', '/upload-video', '/user-dashboard', '/job-matches', '/job-details']
+  const isUserOnlyRoute = userOnlyRoutes.some(route => location.pathname.startsWith(route))
+  if (isUserOnlyRoute && !isUser && isAuthenticated) {
+    return <RoleAccessDenied requiredRole="user" currentPath={location.pathname} />
   }
 
   // For onboarding, assessment, and analysis routes, always allow access
